@@ -17,6 +17,10 @@ Write-Host "======================================================" -ForegroundC
 Write-Host "  🚀 Starting Mount Fuji Backend Server..." -ForegroundColor Green
 Write-Host "======================================================" -ForegroundColor Cyan
 
+# Ensure local Redis is running
+powershell -ExecutionPolicy Bypass -File "$PSScriptRoot\scripts\start_redis.ps1"
+
+
 if ($Prod) {
     Write-Host "Mode: Production" -ForegroundColor Yellow
     Write-Host "Press Ctrl+C to stop.`n" -ForegroundColor DarkGray

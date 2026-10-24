@@ -34,3 +34,22 @@ router.add_api_route(
     methods=["DELETE"],
     dependencies=[Depends(auth(config.auth_level.admin))],
 )
+router.add_api_route(
+    "/statistics/overview",
+    AdminController.get_overview_statistics,
+    methods=["GET"],
+    dependencies=[Depends(auth(config.auth_level.admin))],
+)
+router.add_api_route(
+    "/statistics/charts",
+    AdminController.get_charts_statistics,
+    methods=["GET"],
+    dependencies=[Depends(auth(config.auth_level.admin))],
+)
+router.add_api_route(
+    "/statistics/breakdowns",
+    AdminController.get_breakdowns_statistics,
+    methods=["GET"],
+    dependencies=[Depends(auth(config.auth_level.admin))],
+)
+

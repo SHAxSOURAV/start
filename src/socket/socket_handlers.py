@@ -4,7 +4,7 @@ from src.connection.socket_server import sio
 from src.socket.chat_socket_controller import ChatSocketController
 from src.socket.socket_auth import socket_auth
 from src.socket.socket_controller import SocketController
-from src.util.enum import EnumSocketEvent
+from src.util.enum import EnumSocketEvent, EnumUserRole
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -28,6 +28,8 @@ def register_socket_handlers() -> None:
             return
 
         await sio.enter_room(sid, user_id)
+        if user.get("role") in [EnumUserRole.ADMIN, EnumUserRole.SUPER_ADMIN]:
+            await sio.enter_room(sid, "admin")
 
         print(user_id, f"{GREEN}connected{RESET}")
 

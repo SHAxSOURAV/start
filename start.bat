@@ -1,5 +1,6 @@
 @echo off
 set PYYAML_FORCE_LIBYAML=0
+call "%~dp0start_redis.bat"
 echo Starting Mount Fuji Backend Server...
 echo Server : http://localhost:8001
 echo Swagger: http://localhost:8001/docs

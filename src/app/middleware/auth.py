@@ -7,6 +7,7 @@ from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.util.http_status import status
 from src.util.jwt_helpers import jwt_helpers
+from src.util.monitoring import set_sentry_user
 
 
 def auth(
@@ -34,6 +35,11 @@ def auth(
             raise ApiError(status.UNAUTHORIZED, "Invalid or expired token") from None
 
         request.state.user = verify_user
+        set_sentry_user(
+            user_id=str(verify_user.get("userId") or verify_user.get("authId") or ""),
+            role=verify_user.get("role"),
+            email=verify_user.get("email"),
+        )
 
         # Step 2: Role check from JWT payload claims (Zero-IO)
         if roles and verify_user.get("role") not in roles:

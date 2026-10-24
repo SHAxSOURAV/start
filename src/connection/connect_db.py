@@ -19,7 +19,9 @@ from src.app.module.manage.manage_model import (
 )
 from src.app.module.notification.admin_notification_model import AdminNotification
 from src.app.module.notification.notification_model import Notification
+from src.app.module.payment.payment_model import Payment
 from src.app.module.review.review_model import Review
+from src.app.module.subscription.subscription_model import Subscription
 from src.app.module.user.user_model import User
 from src.config import config
 
@@ -37,6 +39,8 @@ DOCUMENT_MODELS = [
     Review,
     Notification,
     AdminNotification,
+    Subscription,
+    Payment,
     Chat,
     Message,
 ]
@@ -46,8 +50,16 @@ client: AsyncMongoClient | None = None
 
 async def connect_db() -> None:
     global client
+    if client is not None:
+        return
     try:
-        client = AsyncMongoClient(config.database_url)
+        client = AsyncMongoClient(
+            config.database_url,
+            maxPoolSize=100,
+            minPoolSize=10,
+            maxIdleTimeMS=30000,
+            serverSelectionTimeoutMS=5000,
+        )
         db = (
             client[config.database_name]
             if config.database_name

@@ -6,8 +6,31 @@ class EnumUserRole:
 
 
 class EnumPaymentStatus:
+    PENDING = "pending"
     SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELED = "canceled"
+    REFUNDED = "refunded"
     UNPAID = "unpaid"
+
+
+class EnumSubscriptionStatus:
+    ACTIVE = "active"
+    TRIAL = "trial"
+    CANCELED = "canceled"
+    EXPIRED = "expired"
+    BILLING_ISSUE = "billing_issue"
+    NONE = "none"
+
+
+class EnumSubscriptionStore:
+    APP_STORE = "APP_STORE"
+    PLAY_STORE = "PLAY_STORE"
+    STRIPE = "STRIPE"
+    PROMOTIONAL = "PROMOTIONAL"
+    AMAZON = "AMAZON"
+    UNKNOWN = "UNKNOWN"
+
 
 
 class EnumSocketEvent:
@@ -20,6 +43,17 @@ class EnumSocketEvent:
 
     START_CHAT = "start_chat"
     SEND_MESSAGE = "send_message"
+    NOTIFICATION = "notification"
+
+
+class EnumNotificationType:
+    SYSTEM = "system"
+    CHAT = "chat"
+    AUTH = "auth"
+    SECURITY = "security"
+    PAYMENT = "payment"
+    PROMOTION = "promotion"
+
 
 
 class EnumLoginProvider:

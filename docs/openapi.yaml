@@ -17,6 +17,12 @@ tags:
     description: User authentication, registration, OTP verification, and session management
   - name: Admin
     description: Administrative actions and user management
+  - name: Notification
+    description: User in-app notification feed, real-time alerts, unread counts, and 30-day lifecycle management
+  - name: Subscription
+    description: RevenueCat in-app purchase and subscription management, webhook processing, and entitlement verification
+  - name: Payment
+    description: Stripe checkout sessions, custom payment intents, webhooks, and transaction history
   - name: System
     description: System health, connectivity status, and server monitoring
 
@@ -334,6 +340,427 @@ paths:
         "201": { description: Admin created }
         "403": { description: Requires SUPER_ADMIN role }
         "409": { description: Email already registered }
+
+  /api/v1/notification/get-all-notifications:
+    get:
+      tags: [Notification]
+      summary: Get paginated notification feed
+      description: Returns paginated notifications for the authenticated user, along with unreadCount in meta.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: type
+          in: query
+          description: Filter by category (system, chat, auth, security, payment, promotion)
+          schema: { type: string }
+        - name: isRead
+          in: query
+          description: Filter by read state (true/false)
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Notifications feed retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: Notifications retrieved successfully }
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer, example: 1 }
+                      limit: { type: integer, example: 20 }
+                      total: { type: integer, example: 45 }
+                      totalPage: { type: integer, example: 3 }
+                      unreadCount: { type: integer, example: 5 }
+                  data:
+                    type: array
+                    items:
+                      type: object
+        "401": { description: Unauthorized }
+
+  /api/v1/notification/get-notification:
+    get:
+      tags: [Notification]
+      summary: Get single notification details (Auto-marks as read)
+      description: Retrieves a single notification by notificationId and automatically sets isRead to true.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notificationId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notification retrieved and marked as read
+        "401": { description: Unauthorized }
+        "404": { description: Notification not found }
+
+  /api/v1/notification/unread-count:
+    get:
+      tags: [Notification]
+      summary: Get unread notification count
+      description: Returns the total unread notifications count for fast badge/bell rendering.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unread count retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: Unread notification count retrieved }
+                  data:
+                    type: object
+                    properties:
+                      unreadCount: { type: integer, example: 4 }
+        "401": { description: Unauthorized }
+
+  /api/v1/notification/mark-as-read:
+    patch:
+      tags: [Notification]
+      summary: Mark specific notification(s) as read
+      description: Mark a single notification or a list of notification IDs as read.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notificationId: { type: string }
+                notificationIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Notifications marked as read
+        "401": { description: Unauthorized }
+
+  /api/v1/notification/mark-all-as-read:
+    patch:
+      tags: [Notification]
+      summary: Mark all notifications as read
+      description: Sets isRead to true for all notifications belonging to the active user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All notifications marked as read
+        "401": { description: Unauthorized }
+
+  /api/v1/notification/update-as-mark-unread:
+    patch:
+      tags: [Notification]
+      summary: Toggle read/unread state (Backward-compatible)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isRead]
+              properties:
+                isRead: { type: boolean }
+      responses:
+        "200":
+          description: Notification status updated
+        "401": { description: Unauthorized }
+
+  /api/v1/notification/delete-notification:
+    delete:
+      tags: [Notification]
+      summary: Delete a single notification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [notificationId]
+              properties:
+                notificationId: { type: string }
+      responses:
+        "200":
+          description: Notification deleted successfully
+        "401": { description: Unauthorized }
+        "404": { description: Notification not found }
+
+  /api/v1/notification/clear-all:
+    delete:
+      tags: [Notification]
+      summary: Clear all notifications
+      description: Deletes all in-app notifications belonging to the authenticated user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All notifications cleared successfully
+        "401": { description: Unauthorized }
+
+  /api/v1/subscription/webhook:
+    post:
+      tags: [Subscription]
+      summary: RevenueCat Inbound Webhook Receiver
+      description: |
+        Receives real-time subscription lifecycle events (purchases, renewals, cancellations, billing issues) from RevenueCat.
+        Validated with authorization secret header when REVENUECAT_ENABLED is true.
+      parameters:
+        - name: Authorization
+          in: header
+          description: Custom webhook secret configured in RevenueCat dashboard
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                api_version: { type: string }
+                event:
+                  type: object
+                  required: [id, type, app_user_id]
+                  properties:
+                    id: { type: string }
+                    type: { type: string, example: INITIAL_PURCHASE }
+                    app_user_id: { type: string }
+                    product_id: { type: string }
+                    entitlement_ids:
+                      type: array
+                      items: { type: string }
+                    expiration_at_ms: { type: integer }
+      responses:
+        "200":
+          description: Webhook event processed successfully
+        "401":
+          description: Invalid webhook authorization secret
+
+  /api/v1/subscription/my-subscription:
+    get:
+      tags: [Subscription]
+      summary: Get active user's subscription status and entitlements
+      description: Returns the authenticated user's current subscription state, active entitlements, planId, and expiration date.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: Subscription details retrieved }
+                  data:
+                    type: object
+                    properties:
+                      enabled: { type: boolean, example: true }
+                      hasActiveSubscription: { type: boolean, example: true }
+                      status: { type: string, example: active }
+                      planId: { type: string, example: pro_monthly }
+                      entitlements:
+                        type: array
+                        items: { type: string }
+                        example: ["pro", "premium"]
+                      expiresAt: { type: string, format: date-time }
+        "401": { description: Unauthorized }
+
+  /api/v1/subscription/check-entitlement:
+    get:
+      tags: [Subscription]
+      summary: Check if user has a specific entitlement (e.g. 'pro')
+      description: Fast endpoint to verify if the active user possesses an active entitlement.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entitlement
+          in: query
+          required: false
+          schema: { type: string, default: pro }
+      responses:
+        "200":
+          description: Entitlement check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  data:
+                    type: object
+                    properties:
+                      enabled: { type: boolean, example: true }
+                      hasAccess: { type: boolean, example: true }
+                      entitlement: { type: string, example: pro }
+        "401": { description: Unauthorized }
+
+  /api/v1/admin/statistics/overview:
+    get:
+      tags: [Admin]
+      summary: Get platform KPI overview statistics
+      description: |
+        Retrieves real-time platform KPIs across users, subscriptions, chats, reviews, and support.
+        Sub-millisecond response cached in Redis (60s TTL). Use ?refresh=true to bypass cache.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: refresh
+          schema: { type: boolean, default: false }
+          description: Force fresh MongoDB calculation bypassing Redis cache
+      responses:
+        "200":
+          description: Overview metrics successfully retrieved
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (Admin role required)
+
+  /api/v1/admin/statistics/charts:
+    get:
+      tags: [Admin]
+      summary: Get monthly growth & message timeline trends
+      description: |
+        Returns monthly user registrations, subscription purchases for target year, and 7-day message volume.
+        Perfect for rendering Frontend line and bar charts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema: { type: integer, example: 2026 }
+          description: Target year for monthly growth metrics (defaults to current year)
+        - in: query
+          name: refresh
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Timeline chart statistics successfully retrieved
+
+  /api/v1/admin/statistics/breakdowns:
+    get:
+      tags: [Admin]
+      summary: Get categorical distributions (roles, auth providers, stores, ratings)
+      description: |
+        Returns categorical distributions across user roles, OAuth providers (Google/Apple),
+        subscription stores (App Store/Play Store/Stripe), star ratings (1-5), and feedback statuses.
+        Designed for frontend pie & donut charts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: refresh
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Breakdown statistics successfully retrieved
+
+  /api/v1/payment/config:
+    get:
+      tags: [Payment]
+      summary: Get Stripe public publishable key and currency
+      responses:
+        "200":
+          description: Public config retrieved
+
+  /api/v1/payment/create-checkout-session:
+    post:
+      tags: [Payment]
+      summary: Create Stripe Checkout Session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, productName]
+              properties:
+                amount: { type: number, example: 29.99 }
+                currency: { type: string, example: usd }
+                productName: { type: string, example: "Monthly Pro Subscription" }
+                description: { type: string }
+                successUrl: { type: string }
+                cancelUrl: { type: string }
+                metadata: { type: object }
+      responses:
+        "201":
+          description: Checkout session created with checkoutUrl
+
+  /api/v1/payment/create-payment-intent:
+    post:
+      tags: [Payment]
+      summary: Create Stripe PaymentIntent for in-app Elements
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number, example: 29.99 }
+                currency: { type: string, example: usd }
+                description: { type: string }
+                metadata: { type: object }
+      responses:
+        "201":
+          description: PaymentIntent created with clientSecret
+
+  /api/v1/payment/webhook:
+    post:
+      tags: [Payment]
+      summary: Stripe webhook event listener
+      description: Verifies Stripe-Signature header using STRIPE_WEBHOOK_SECRET and processes events
+      responses:
+        "200":
+          description: Webhook received and processed
+
+  /api/v1/payment/my-payments:
+    get:
+      tags: [Payment]
+      summary: Get user payment transaction history
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Paginated payment history
 
   /api/v1/health:
     get:

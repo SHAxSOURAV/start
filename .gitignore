@@ -1,10 +1,9 @@
 # ==================================================
 # Secrets, Credentials & Sensitive Files
 # ==================================================
-.env
-.env.*
+# .env tracked as per project repository requirements
+!.env
 !.env.example
-*.env
 *.key
 *.pem
 *.cert
@@ -33,7 +32,6 @@ temp/
 *~
 debug_*.py
 scratch_*.py
-test_*.py
 temp_*.py
 scratch.*
 *.scratch.*
@@ -45,7 +43,6 @@ scratch.*
 scratch.md
 notes.md
 TODO.md
-.agents/
 .gemini/
 
 # ==================================================

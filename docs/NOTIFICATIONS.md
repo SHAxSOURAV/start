@@ -28,12 +28,23 @@ graph TD
 
 ### A. Environment Configuration (`.env`)
 ```bash
-#------------ONESIGNAL---------------------------------
+#------------ONESIGNAL & NOTIFICATIONS-----------------
 ONESIGNAL_APP_ID=your_onesignal_app_id
 ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key
+# Maximum days notifications are stored in MongoDB before automatic TTL deletion (Default: 30 days)
+NOTIFICATION_RETENTION_DAYS=30
 ```
 
-### B. Client-to-Backend Identification (`external_id`)
+### B. 30-Day Automatic Lifecycle & Database Protection (TTL Index)
+To prevent database bloat, slow indexing, and high storage costs across large user bases:
+- Every notification document has a **MongoDB Time-To-Live (TTL) index** configured on `createdAt`:
+  ```python
+  pymongo.IndexModel([("createdAt", pymongo.ASCENDING)], expireAfterSeconds=2592000)
+  ```
+- MongoDB's internal background thread scans this index and automatically purges documents older than **30 days** (`2,592,000` seconds).
+- Zero manual deletion scripts, zero cron overhead, and guaranteed sub-millisecond query performance!
+
+### C. Client-to-Backend Identification (`external_id`)
 To ensure push notifications reach the specific user:
 - On Frontend login (Mobile / Web SDK):
   ```javascript
@@ -42,6 +53,7 @@ To ensure push notifications reach the specific user:
   ```
 - On Backend push dispatch:
   The backend targets the user via `include_aliases: {"external_id": [user_id]}`. OneSignal automatically routes the push notification to all devices registered by that user!
+
 
 ---
 
@@ -56,6 +68,14 @@ To ensure push notifications reach the specific user:
 | `AUTH_PASSWORD_CHANGED` | Upon successful password modification (`/change-password`) | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Security Alert`<br>**Message**: `Your account password was recently changed.` | `{"type": "security", "action": "password_changed"}` |
 | `AUTH_NEW_DEVICE_LOGIN` | When sign-in is detected from a new/unrecognized device | ✉️ Transactional Email<br>📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id` / Email) | **Subject / Title**: `Security Alert: New Sign-in`<br>**Content**: Device name, client IP & UTC timestamp | `{"type": "security", "action": "new_device_login"}` |
 | `ADMIN_SYSTEM_ALERT` | System-level broadcast or administrative notice | 📱 OneSignal Push (Segment)<br>🔔 Admin In-App Feed | All Subscribed Users / Admins | **Title**: `<Alert Title>`<br>**Message**: `<Alert Body>` | `{"type": "system_announcement"}` |
+| `SUB_INITIAL_PURCHASE` | When RevenueCat/Stripe initial purchase webhook fires | 📱 OneSignal Push<br>🔔 In-App Feed<br>⚡ Socket.IO | User (`external_id: user_id`) | **Title**: `Subscription Activated 🎉`<br>**Message**: `Welcome! Your <plan> subscription is now active.` | `{"type": "subscription", "status": "ACTIVE"}` |
+| `SUB_RENEWAL` | When monthly/annual subscription successfully auto-renews | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Subscription Renewed`<br>**Message**: `Your <plan> subscription was successfully renewed.` | `{"type": "subscription", "status": "ACTIVE"}` |
+| `SUB_CANCELLATION` | When user turns off auto-renewal via store | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Subscription Canceled`<br>**Message**: `Your subscription remains active until period ends.` | `{"type": "subscription", "status": "CANCELED"}` |
+| `SUB_EXPIRATION` | When subscription period lapses without renewal | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Subscription Expired`<br>**Message**: `Renew today to continue enjoying premium benefits.` | `{"type": "subscription", "status": "EXPIRED"}` |
+| `SUB_BILLING_ISSUE` | When payment attempt fails (expired card, insufficient funds) | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Payment Alert ⚠️`<br>**Message**: `Issue processing renewal. Update payment method.` | `{"type": "subscription", "status": "BILLING_ISSUE"}` |
+| `STRIPE_PAYMENT_SUCCESS` | When Stripe Checkout Session or PaymentIntent completes | 📱 OneSignal Push<br>🔔 In-App Feed<br>⚡ Socket.IO | User (`external_id: user_id`) | **Title**: `Payment Successful 🎉`<br>**Message**: `Your payment of <amount> has been received successfully.` | `{"type": "payment", "status": "succeeded"}` |
+| `STRIPE_PAYMENT_FAILED` | When Stripe charge is declined or payment intent fails | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Payment Failed ⚠️`<br>**Message**: `Your payment could not be processed: <reason>` | `{"type": "payment", "status": "failed"}` |
+| `STRIPE_PAYMENT_REFUNDED` | When Stripe charge refund is completed | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Refund Processed`<br>**Message**: `A refund has been credited back to your original payment method.` | `{"type": "payment", "status": "refunded"}` |
 
 ---
 
@@ -102,7 +122,24 @@ fire_and_forget(
 
 ---
 
-## 5. Mandatory Agent Protocol (এজেন্টের জন্য অবশ্য পালনীয় নিয়ম)
+## 5. Notification REST API Endpoints (`/api/v1/notification`)
+
+All endpoints require JWT Bearer token authentication (`Depends(auth(config.auth_level.user))`).
+
+| Method | Endpoint Path | Query / Body Payload | Response / Purpose |
+|---|---|---|---|
+| `GET` | `/api/v1/notification/get-all-notifications` | `?page=1&limit=20&type=chat&isRead=false` | Paginated feed, includes `meta.unreadCount` |
+| `GET` | `/api/v1/notification/get-notification` | `?notificationId=<id>` | Single notification details; auto-marks as read |
+| `GET` | `/api/v1/notification/unread-count` | None | `{ "unreadCount": 5 }` for instant UI badge counters |
+| `PATCH` | `/api/v1/notification/mark-as-read` | `{"notificationId": "<id>"}` or `{"notificationIds": [...]}` | Marks specific notification(s) as read |
+| `PATCH` | `/api/v1/notification/mark-all-as-read` | None | Marks all active user's notifications as read |
+| `PATCH` | `/api/v1/notification/update-as-mark-unread` | `{"isRead": false}` | Toggles read/unread state |
+| `DELETE` | `/api/v1/notification/delete-notification` | `{"notificationId": "<id>"}` | Deletes a single notification |
+| `DELETE` | `/api/v1/notification/clear-all` | None | Clears all notifications for the active user |
+
+---
+
+## 6. Mandatory Agent Protocol (এজেন্টের জন্য অবশ্য পালনীয় নিয়ম)
 
 > [!IMPORTANT]
 > Whenever any AI agent (Antigravity / Gemini) creates a new module, endpoint, or background job that dispatches notifications, the agent **MUST**:

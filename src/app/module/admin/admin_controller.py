@@ -60,8 +60,56 @@ async def create_admin(request: Request) -> JSONResponse:
     )
 
 
+@catch_async
+async def get_overview_statistics(request: Request) -> JSONResponse:
+    refresh = request.query_params.get("refresh", "false").lower() == "true"
+    result = await AdminService.get_overview_statistics(refresh=refresh)
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Admin overview statistics retrieved successfully",
+            "data": result,
+        }
+    )
+
+
+@catch_async
+async def get_charts_statistics(request: Request) -> JSONResponse:
+    refresh = request.query_params.get("refresh", "false").lower() == "true"
+    year_param = request.query_params.get("year")
+    year = int(year_param) if year_param and year_param.isdigit() else None
+    result = await AdminService.get_charts_statistics(year=year, refresh=refresh)
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Admin growth charts statistics retrieved successfully",
+            "data": result,
+        }
+    )
+
+
+@catch_async
+async def get_breakdowns_statistics(request: Request) -> JSONResponse:
+    refresh = request.query_params.get("refresh", "false").lower() == "true"
+    result = await AdminService.get_breakdowns_statistics(refresh=refresh)
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Admin breakdown statistics retrieved successfully",
+            "data": result,
+        }
+    )
+
+
 class AdminController:
     create_admin = staticmethod(create_admin)
     update_profile = staticmethod(update_profile)
     get_profile = staticmethod(get_profile)
     delete_my_account = staticmethod(delete_my_account)
+    get_overview_statistics = staticmethod(get_overview_statistics)
+    get_charts_statistics = staticmethod(get_charts_statistics)
+    get_breakdowns_statistics = staticmethod(get_breakdowns_statistics)
+

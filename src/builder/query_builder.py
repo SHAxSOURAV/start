@@ -4,6 +4,7 @@ import math
 import re
 from typing import Any
 
+from bson import ObjectId
 from pymongo.collation import Collation
 
 # Query parameters coming from the URL
@@ -130,6 +131,60 @@ class QueryBuilder:
             cursor = cursor.limit(self._limit)
 
         return await cursor.to_list(length=self._limit or None)
+
+    def cursor_paginate(
+        self,
+        cursor: str | None = None,
+        limit: int | None = None,
+        descending: bool = True,
+    ) -> QueryBuilder:
+        """Configures Beast Mode Keyset (Cursor) Pagination.
+
+        Avoids deep .skip() performance penalties on large collections.
+        """
+        raw_cursor = cursor or self.query.get("cursor")
+        parsed_limit = limit or _to_int(self.query.get("limit"), 10)
+
+        if raw_cursor and isinstance(raw_cursor, str) and ObjectId.is_valid(raw_cursor):
+            operator = "$lt" if descending else "$gt"
+            self._filter["_id"] = {operator: ObjectId(raw_cursor)}
+
+        self._sort = [("_id", -1 if descending else 1)]
+        self._limit = parsed_limit
+        return self
+
+    async def execute_cursor(self) -> dict[str, Any]:
+        """Executes cursor pagination query fetching limit + 1 items to determine hasMore and nextCursor."""
+        fetch_limit = (self._limit + 1) if self._limit > 0 else None
+        cursor = self.collection.find(self._filter, self._projection)
+
+        if self._collation is not None:
+            cursor = cursor.collation(self._collation)
+        if self._sort:
+            cursor = cursor.sort(self._sort)
+        if fetch_limit:
+            cursor = cursor.limit(fetch_limit)
+
+        raw_items = await cursor.to_list(length=fetch_limit)
+        has_more = False
+        next_cursor = None
+
+        if self._limit > 0 and len(raw_items) > self._limit:
+            has_more = True
+            items = raw_items[: self._limit]
+            last_item = items[-1]
+            next_cursor = str(last_item.get("_id"))
+        else:
+            items = raw_items
+
+        return {
+            "items": items,
+            "meta": {
+                "limit": self._limit,
+                "hasMore": has_more,
+                "nextCursor": next_cursor,
+            },
+        }
 
     async def count_total(self) -> PaginationMeta:
         total = await self.collection.count_documents(self._filter)

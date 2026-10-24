@@ -10,8 +10,8 @@ from src.types.auth_types import AuthUserPayload
 from src.util.base_document import utcnow
 from src.util.delete_falsy_field import delete_falsy_field
 from src.util.http_status import status
+from src.util.media_storage import delete_media, upload_media
 from src.util.request_body import get_body, get_files, get_user
-from src.util.unlink_file import unlink_file
 
 
 async def populate_auth(doc: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -42,7 +42,10 @@ async def update_profile(request: Request) -> dict[str, Any]:
 
     has_new_image = False
     if files.get("profile_image"):
-        update_data["profile_image"] = files["profile_image"][0]["path"]
+        local_path = files["profile_image"][0]["path"]
+        update_data["profile_image"] = await upload_media(
+            local_path, folder="profile_images", retention_category="profiles"
+        )
         has_new_image = True
 
     if update_data.get("name") is not None:
@@ -62,7 +65,7 @@ async def update_profile(request: Request) -> dict[str, Any]:
         raise ApiError(status.NOT_FOUND, "User not found!")
 
     if has_new_image and existing_user and existing_user.get("profile_image"):
-        unlink_file(existing_user["profile_image"])
+        await delete_media(existing_user["profile_image"])
 
     return await populate_auth(user)  # type: ignore[return-value]
 
@@ -99,7 +102,7 @@ async def delete_my_account(payload: dict[str, Any]) -> None:
         raise ApiError(status.FORBIDDEN, "Password is incorrect")
 
     if user.get("profile_image"):
-        unlink_file(user["profile_image"])
+        await delete_media(user["profile_image"])
 
     await Auth.get_pymongo_collection().delete_one({"_id": auth["_id"]})
     await User.get_pymongo_collection().delete_one({"_id": user["_id"]})

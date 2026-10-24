@@ -38,6 +38,8 @@ To prevent dependency bloat, version drift, and security vulnerabilities, **only
 | **HTTP Client** | HTTPX | `httpx>=0.28.0` | Non-blocking outbound HTTP API requests |
 | **Payment Gateway** | Stripe | `stripe>=16.0.0` | Payment intents, billing, and webhooks |
 | **In-Memory Cache & Revocation** | Redis (asyncio) | `redis>=5.2.0` | Sub-millisecond JWT blacklist, instant bans & distributed rate limiting |
+| **Cloud Object Storage** | AWS S3 (aioboto3) | `aioboto3>=15.0.0` | Native AsyncIO S3 client for media/document uploads & presigned URLs |
+| **Observability & APM** | Sentry SDK | `sentry-sdk>=2.20.0` | Real-time crash reporting, APM performance tracing & PII data scrubbing |
 | **Code Quality** | Ruff & Mypy | `ruff>=0.16.0`, `mypy>=2.4.0` | Strict linting, formatting, and static typing |
 | **Testing** | pytest, pytest-asyncio, httpx | Standard Dev | Asynchronous unit and integration test suites |
 

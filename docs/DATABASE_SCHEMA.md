@@ -267,6 +267,127 @@ erDiagram
 
 ---
 
+### 2.12 `notifications` (Notification Model)
+- **Source**: [src/app/module/notification/notification_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/notification/notification_model.py)
+- **Purpose**: User-specific in-app notification feed with automatic 30-day TTL lifecycle, deep-link payloads, and read/unread status.
+- **Auto-Retention**: MongoDB TTL index on `createdAt` automatically removes records after **30 days** (`expireAfterSeconds = 2592000`).
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Description / Constraints |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `toId` | `ObjectId` | `PydanticObjectId` | Yes | - | FK -> `users._id` (Target Recipient) |
+| `senderId` | `ObjectId` | `PydanticObjectId \| None` | No | `None` | Optional FK -> Sender User/Admin |
+| `title` | `string` | `str` | Yes | - | Notification title headline |
+| `message` | `string` | `str` | Yes | - | Notification body content |
+| `type` | `string` | `str` | Yes | `system` | Category: `system`, `chat`, `auth`, `security`, `payment`, `promotion` |
+| `data` | `object` | `dict[str, Any]` | No | `{}` | Flexible deep-link navigation metadata |
+| `link` | `string` | `str \| None` | No | `None` | Web URL or mobile deep-link URI |
+| `image` | `string` | `str \| None` | No | `None` | Optional banner or avatar image URL |
+| `isRead` | `bool` | `bool` | Yes | `False` | Read status flag |
+| `readAt` | `Date` | `datetime \| None` | No | `None` | Timestamp when user opened/read notification |
+| `createdAt` | `Date` | `datetime` | Yes | `utcnow()` | Creation timestamp (Bound to 30-day TTL) |
+| `updatedAt` | `Date` | `datetime` | Yes | `utcnow()` | Last mutation timestamp |
+
+#### Indexes
+- `notification_created_at_ttl_idx`: `[("createdAt", ASC)]`, `expireAfterSeconds = 2592000` (Automatic 30-Day Expiration)
+- `user_unread_feed_idx`: `[("toId", ASC), ("isRead", ASC), ("createdAt", DESC)]` (Hot path: unread feed)
+- `user_all_feed_idx`: `[("toId", ASC), ("createdAt", DESC)]` (User feed pagination)
+- `user_type_feed_idx`: `[("toId", ASC), ("type", ASC), ("createdAt", DESC)]` (Category filtering)
+
+---
+
+### 2.13 `adminnotifications` (AdminNotification Model)
+- **Source**: [src/app/module/notification/admin_notification_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/notification/admin_notification_model.py)
+- **Purpose**: System-wide administrative broadcast notifications with automatic 30-day TTL lifecycle.
+- **Auto-Retention**: MongoDB TTL index on `createdAt` automatically removes records after **30 days** (`expireAfterSeconds = 2592000`).
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `title` | `string` | `str` | Yes | - | Admin alert title |
+| `message` | `string` | `str` | Yes | - | Admin alert message |
+| `type` | `string` | `str` | Yes | `system` | Alert category |
+| `data` | `object` | `dict[str, Any]` | No | `{}` | Metadata payload |
+| `link` | `string` | `str \| None` | No | `None` | Admin dashboard target link |
+| `image` | `string` | `str \| None` | No | `None` | Image URL |
+| `isRead` | `bool` | `bool` | Yes | `False` | Admin read flag |
+| `readAt` | `Date` | `datetime \| None` | No | `None` | Timestamp read |
+| `createdAt` | `Date` | `datetime` | Yes | `utcnow()` | Creation timestamp (Bound to 30-day TTL) |
+| `updatedAt` | `Date` | `datetime` | Yes | `utcnow()` | Last mutation timestamp |
+
+#### Indexes
+- `admin_notification_ttl_idx`: `[("createdAt", ASC)]`, `expireAfterSeconds = 2592000` (Automatic 30-Day Expiration)
+- `admin_unread_feed_idx`: `[("isRead", ASC), ("createdAt", DESC)]`
+- `admin_all_feed_idx`: `[("createdAt", DESC)]`
+
+---
+
+### 2.14 `subscriptions` (Subscription Model)
+- **Source**: [src/app/module/subscription/subscription_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/subscription/subscription_model.py)
+- **Purpose**: Stores user in-app purchase and recurring subscription entitlements synced via RevenueCat webhooks.
+- **Provider**: RevenueCat (REST API v2 and Inbound Webhook integration). Controlled via `REVENUECAT_ENABLED` feature flag.
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `userId` | `ObjectId` | `PydanticObjectId` | Yes | - | FK -> `users._id` (Unique 1:1 mapping) |
+| `appUserId` | `string` | `str` | Yes | - | RevenueCat App User ID (MongoDB user `_id`) |
+| `originalAppUserId` | `string` | `str \| None` | No | `None` | Pre-identification anonymous ID |
+| `aliases` | `array` | `list[str]` | No | `[]` | RevenueCat user aliases |
+| `status` | `string` | `str` | Yes | `none` | `active`, `canceled`, `expired`, `billing_issue`, `trial`, `none` |
+| `productId` | `string` | `str \| None` | No | `None` | RevenueCat package / Store product identifier |
+| `entitlements` | `array` | `list[str]` | No | `[]` | List of active entitlement IDs (e.g. `["pro", "premium"]`) |
+| `store` | `string` | `str` | Yes | `UNKNOWN` | `APP_STORE`, `PLAY_STORE`, `STRIPE`, `PROMOTIONAL`, `AMAZON` |
+| `environment` | `string` | `str` | Yes | `SANDBOX` | `SANDBOX` or `PRODUCTION` |
+| `purchasedAt` | `Date` | `datetime \| None` | No | `None` | Timestamp of subscription activation |
+| `expiresAt` | `Date` | `datetime \| None` | No | `None` | Subscription expiration timestamp |
+| `unsubscribeDetectedAt` | `Date` | `datetime \| None` | No | `None` | Auto-renew cancellation timestamp |
+| `isAutoRenewing` | `bool` | `bool` | Yes | `True` | Auto-renewal state |
+| `cancelReason` | `string` | `str \| None` | No | `None` | Cancellation reason |
+| `rawEvent` | `object` | `dict[str, Any]` | No | `{}` | Last processed RevenueCat webhook event payload |
+| `createdAt` | `Date` | `datetime` | Yes | `utcnow()` | Document creation timestamp |
+| `updatedAt` | `Date` | `datetime` | Yes | `utcnow()` | Last mutation timestamp |
+
+#### Indexes
+- `subscription_user_id_unique_idx`: `[("userId", ASC)]`, `unique=True`
+- `subscription_app_user_id_idx`: `[("appUserId", ASC)]`
+- `subscription_entitlement_status_idx`: `[("status", ASC), ("entitlements", ASC), ("expiresAt", DESC)]`
+
+---
+
+### 2.17 `payments` (Payment Model)
+- **Source**: [src/app/module/payment/payment_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/payment/payment_model.py)
+- **Purpose**: Records Stripe one-time payments, checkout sessions, custom payment intents, refunds, and user transaction history.
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Validation / Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `userId` | `ObjectId` | `PydanticObjectId` | Yes | - | Foreign Key -> `users._id` |
+| `userEmail` | `string` | `str \| None` | No | `None` | Customer receipt email |
+| `amount` | `double` | `float` | Yes | - | Payment amount in standard currency units (e.g. 29.99) |
+| `currency` | `string` | `str` | Yes | `"usd"` | 3-letter ISO lowercase currency code |
+| `status` | `string` | `str` | Yes | `"pending"` | `pending`, `succeeded`, `failed`, `canceled`, `refunded` |
+| `stripePaymentIntentId` | `string` | `str \| None` | No | `None` | Stripe PaymentIntent ID (`pi_...`) |
+| `stripeSessionId` | `string` | `str \| None` | No | `None` | Stripe Checkout Session ID (`cs_...`) |
+| `stripeCustomerId` | `string` | `str \| None` | No | `None` | Stripe Customer ID (`cus_...`) |
+| `paymentMethod` | `string` | `str \| None` | No | `"card"` | Payment method type |
+| `description` | `string` | `str \| None` | No | `None` | Description or item title |
+| `metadata` | `object` | `dict[str, Any]` | No | `{}` | Custom payload key-value pairs |
+| `receiptUrl` | `string` | `str \| None` | No | `None` | Hosted Stripe receipt URL |
+| `failureReason` | `string` | `str \| None` | No | `None` | Stripe error message upon failure |
+| `createdAt` | `Date` | `datetime` | Yes | `utcnow()` | Document creation timestamp |
+| `updatedAt` | `Date` | `datetime` | Yes | `utcnow()` | Document mutation timestamp |
+
+#### Indexes
+- `[("userId", 1)]`: Fast lookup for user payment history
+- `[("stripePaymentIntentId", 1)]`: Sparse index for webhook event matching
+- `[("stripeSessionId", 1)]`: Sparse index for checkout session webhook matching
+- `[("status", 1)]`: Fast filtering for successful/pending payments
+- `[("createdAt", -1)]`: Fast chronological sort for payment history
+- `[("userId", 1), ("status", 1)]`: Compound index for user filtered payments
+
+---
+
 ## 3. In-Memory Redis Key Catalog & Namespace Contracts
 
 The application utilizes **Redis (asyncio)** as a sub-millisecond in-memory cache, distributed rate limiter, and JWT token revocation layer. 

@@ -3,11 +3,17 @@ from typing import Any
 from fastapi import Request
 
 from src.app.module.admin.admin_model import Admin
+from src.app.module.admin.admin_stats_service import (
+    get_breakdowns_statistics,
+    get_charts_statistics,
+    get_overview_statistics,
+)
 from src.app.module.auth.auth_model import AUTH_PUBLIC_PROJECTION, Auth
 from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.types.auth_types import AuthUserPayload
 from src.util.base_document import utcnow
+from src.util.cloudinary import upload_file_to_cloudinary
 from src.util.delete_falsy_field import delete_falsy_field
 from src.util.enum import EnumUserRole
 from src.util.http_status import status
@@ -81,7 +87,10 @@ async def update_profile(request: Request) -> dict[str, Any]:
 
     has_new_image = False
     if files.get("profile_image"):
-        updated_data["profile_image"] = files["profile_image"][0]["path"]
+        local_path = files["profile_image"][0]["path"]
+        updated_data["profile_image"] = await upload_file_to_cloudinary(
+            local_path, folder="admin_profiles"
+        )
         has_new_image = True
 
     if updated_data.get("name") is not None:
@@ -154,3 +163,7 @@ class AdminService:
     update_profile = staticmethod(update_profile)
     get_profile = staticmethod(get_profile)
     delete_my_account = staticmethod(delete_my_account)
+    get_overview_statistics = staticmethod(get_overview_statistics)
+    get_charts_statistics = staticmethod(get_charts_statistics)
+    get_breakdowns_statistics = staticmethod(get_breakdowns_statistics)
+

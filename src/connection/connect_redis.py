@@ -5,6 +5,7 @@ and user bans, completely eliminating main database hits during auth middleware 
 Hardened according to the 10 Golden Rules for Production Redis.
 """
 
+import json
 import time
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -26,6 +27,8 @@ _memory_blacklist: dict[str, float] = {}  # key -> expiry_timestamp
 async def connect_redis() -> None:
     """Initializes the Async Redis connection pool and verifies connectivity."""
     global _redis_pool, _redis_client, _is_connected
+    if _is_connected and _redis_client is not None:
+        return
     if not config.redis.url:
         logger.warning(
             "REDIS_URL not configured. Operating in in-memory fallback mode."
@@ -192,3 +195,30 @@ class RedisService:
                     yield key
             except Exception as exc:
                 error_logger.error(f"Redis scan_keys error: {exc}")
+
+    @staticmethod
+    async def get_json(key: str) -> Any | None:
+        """Retrieves and deserializes JSON cached value (Fail-Open / Rule 3)."""
+        client = get_redis_client()
+        if client is None:
+            return None
+        try:
+            raw = await client.get(key)
+            if raw:
+                return json.loads(raw)
+        except Exception as exc:
+            logger.warning(f"Redis get_json error on key {key}: {exc}")
+        return None
+
+    @staticmethod
+    async def set_json(key: str, value: Any, ttl_seconds: int = 60) -> None:
+        """Serializes and caches value with mandatory TTL (Rule 1 & Rule 8)."""
+        client = get_redis_client()
+        if client is None:
+            return
+        try:
+            serialized = json.dumps(value, default=str)
+            await client.setex(key, max(1, ttl_seconds), serialized)
+        except Exception as exc:
+            logger.warning(f"Redis set_json error on key {key}: {exc}")
+
