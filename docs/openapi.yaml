@@ -1,0 +1,371 @@
+openapi: 3.0.3
+info:
+  title: Server Setup Template API
+  description: |
+    FastAPI + Beanie + MongoDB backend template.
+    Interactive documentation for the authentication module and system endpoints.
+    Domain modules (user, admin, chat, review, feedback, notification, manage)
+    follow the same envelope conventions.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001
+    description: Local development
+
+tags:
+  - name: Auth
+    description: User authentication, registration, OTP verification, and session management
+  - name: Admin
+    description: Administrative actions and user management
+  - name: System
+    description: System health, connectivity status, and server monitoring
+
+paths:
+  /api/v1/auth/sign-in:
+    post:
+      tags: [Auth]
+      summary: Sign in with email + password
+      description: |
+        Authenticates user with email and password.
+        If the account was pending 30-day soft deletion, signing in automatically cancels the deletion,
+        restores account state, and returns isSoftDeleted: true so frontend clients can notify the user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Returns accessToken, refreshToken, and isSoftDeleted boolean status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: "Log in successful" }
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+                      isSoftDeleted: { type: boolean, example: false, description: "True if account was scheduled for deletion and has now been restored" }
+        "400": { description: Wrong password / account not activated }
+        "403": { description: Account blocked }
+        "429": { description: Rate limited }
+
+  /api/v1/auth/google-sign-in:
+    post:
+      tags: [Auth]
+      summary: Sign in or register using Google OAuth ID token
+      description: Verifies Google JWT signature against Google public JWKS. Automatically links to existing account if email matches.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken: { type: string, description: "Google OpenID Connect ID token" }
+      responses:
+        "200":
+          description: Returns tokens and isSoftDeleted flag
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: "Google sign in successful" }
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+                      isSoftDeleted: { type: boolean, example: false }
+        "400": { description: Invalid or expired Google token }
+        "403": { description: Account blocked }
+        "429": { description: Rate limited }
+
+  /api/v1/auth/apple-sign-in:
+    post:
+      tags: [Auth]
+      summary: Sign in or register using Apple Identity Token
+      description: Verifies Apple identity token against Apple public JWKS. Automatically links to existing account if email matches.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identityToken]
+              properties:
+                identityToken: { type: string, description: "Apple Identity Token (JWT)" }
+                name: { type: string, description: "Optional name string shared on first authorization" }
+      responses:
+        "200":
+          description: Returns tokens and isSoftDeleted flag
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  statusCode: { type: integer, example: 200 }
+                  message: { type: string, example: "Apple sign in successful" }
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+                      isSoftDeleted: { type: boolean, example: false }
+        "400": { description: Invalid or expired Apple identity token }
+        "403": { description: Account blocked }
+        "429": { description: Rate limited }
+
+  /api/v1/auth/sign-up:
+    post:
+      tags: [Auth]
+      summary: Register a new USER account (sends activation OTP email)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role, password, confirmPassword]
+              properties:
+                name: { type: string, example: Jane Doe }
+                email: { type: string, format: email }
+                role:
+                  {
+                    type: string,
+                    enum: [USER],
+                    description: Only USER may self-register,
+                  }
+                password: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200":
+          { description: Account created — check email for the activation code }
+        "400": { description: Validation error / privileged role rejected }
+
+  /api/v1/auth/activate-account:
+    post:
+      tags: [Auth]
+      summary: Verify the emailed OTP and activate the account
+      description: |
+        Codes expire after 3 minutes and are invalidated after 5 wrong attempts.
+        Protected by a 5-second per-email brute-force cooldown and 5 attempts/15 min IP rate limiter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, activationCode]
+              properties:
+                email: { type: string, format: email }
+                activationCode: { type: string, example: "123456" }
+      responses:
+        "201": { description: Activated — returns access + refresh tokens }
+        "400": { description: Wrong or expired code }
+        "429": { description: Too many attempts }
+
+  /api/v1/auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Re-issue the activation OTP
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOnly"
+      responses:
+        "200": { description: New code sent }
+
+  /api/v1/auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a fresh access token
+      description: Reads the token from the httpOnly cookie or the request body.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { description: New access token issued }
+        "401": { description: Invalid or expired refresh token }
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send a password-reset OTP
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOnly"
+      responses:
+        "200": { description: Reset code sent }
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify the password-reset OTP
+      description: |
+        Verifies the reset OTP code and authorizes the account for password reset.
+        Protected by a 5-second per-email brute-force cooldown and 5 attempts/15 min IP rate limiter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string }
+      responses:
+        "200": { description: Code verified — reset allowed }
+        "400": { description: Wrong or expired code }
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password after OTP verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, newPassword, confirmPassword]
+              properties:
+                email: { type: string, format: email }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200": { description: Password reset }
+        "403": { description: OTP verification not completed }
+
+  /api/v1/auth/change-password:
+    patch:
+      tags: [Auth]
+      summary: Change password (authenticated)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword, confirmPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "200": { description: Password changed }
+        "400": { description: Old password incorrect }
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get currently authenticated user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Returns current user authentication & profile details (password excluded)
+        "401": { description: Unauthorized }
+        "403": { description: Account blocked or deactivated }
+        "404": { description: User not found }
+    delete:
+      tags: [Auth]
+      summary: Soft-delete user account (30-day retention with password confirmation)
+      description: |
+        Requires the user's current password.
+        Sets the account to deactivated (soft delete) for 30 days.
+        After 30 days, background jobs permanently purge the user data and associated files.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, description: Current user password for confirmation }
+      responses:
+        "200":
+          description: Account scheduled for permanent deletion in 30 days
+        "400": { description: Incorrect password or missing field }
+        "401": { description: Unauthorized }
+        "404": { description: User not found }
+        "429": { description: Too many deletion attempts }
+
+  /api/v1/admin/create-admin:
+    post:
+      tags: [Admin]
+      summary: Create a pre-activated ADMIN account (SUPER_ADMIN only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201": { description: Admin created }
+        "403": { description: Requires SUPER_ADMIN role }
+        "409": { description: Email already registered }
+
+  /api/v1/health:
+    get:
+      tags: [System]
+      summary: Health check (DB connectivity + uptime)
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  uptime: { type: number, example: 123.45 }
+                  db: { type: string, example: up }
+        "503":
+          description: Database unreachable
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  requestBodies:
+    EmailOnly:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }

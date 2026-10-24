@@ -1,0 +1,122 @@
+# ==================================================
+# Secrets, Credentials & Sensitive Files
+# ==================================================
+.env
+.env.*
+!.env.example
+*.env
+*.key
+*.pem
+*.cert
+*.crt
+*.p12
+*.p8
+*.pkcs12
+*.pfx
+id_rsa*
+*.id_rsa*
+*credential*
+*secret*
+*.service-account.json
+serviceAccountKey.json
+
+# ==================================================
+# Scratch, Temporary & Debug Scripts
+# ==================================================
+scratch/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+debug_*.py
+scratch_*.py
+test_*.py
+temp_*.py
+scratch.*
+*.scratch.*
+
+# ==================================================
+# Sensitive Markdown & Internal Agent Instructions
+# (Ignores internal prompts, reviews and notes; keeps README.md & docs/)
+# ==================================================
+*.md
+!README.md
+!docs/**/*.md
+!docs/*.md
+CODE_REVIEW.md
+AGENTS.md
+GEMINI.md
+*.scratch.md
+scratch.md
+notes.md
+TODO.md
+.agents/
+.gemini/
+
+# ==================================================
+# Python Bytecode, Caches & Virtual Environments
+# ==================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+
+# Linters, Typecheckers & Testing
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ==================================================
+# Logs & Uploaded Media
+# ==================================================
+logs/
+*.log
+*.pid
+uploads/
+storage/
+media/
+
+# ==================================================
+# IDE & Operating System Files
+# ==================================================
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+Thumbs.db
+desktop.ini
