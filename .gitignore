@@ -39,16 +39,8 @@ scratch.*
 *.scratch.*
 
 # ==================================================
-# Sensitive Markdown & Internal Agent Instructions
-# (Ignores internal prompts, reviews and notes; keeps README.md & docs/)
+# Scratch, Notes & Temporary Markdown Files
 # ==================================================
-*.md
-!README.md
-!docs/**/*.md
-!docs/*.md
-CODE_REVIEW.md
-AGENTS.md
-GEMINI.md
 *.scratch.md
 scratch.md
 notes.md
