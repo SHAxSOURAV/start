@@ -17,6 +17,10 @@ Refer to [AGENTS.md](file:///c:/Users/Sourav/Documents/Start/AGENTS.md) for the 
     - **Proactive Warning & Advice**: If the user or any developer asks to perform, or writes, unsafe Redis operations (e.g., `KEYS *` instead of `SCAN`, `.set()` without TTL, creating new connections per request, unnamespaced keys, or unhandled exceptions without fallback), the agent **MUST immediately warn the user**, explain the production hazard (OOM crash, server freeze, socket starvation), and suggest/implement the best practice (e.g. `RedisService`, `cached_get_or_set`, `distributed_lock`, `UNLINK`, `ex=TTL`).
     - **Connection Pooling**: Never call `redis.from_url()` outside `src.connection.connect_redis`; all modules must use the centralized pool.
     - **Fail-Open Graceful Degradation**: Always wrap Redis operations in `try/except RedisError` with fallback handling so Redis downtime never crashes the backend.
+12. **MongoDB & Async Beanie Production Rules (Official MongoDB MCP Integration)**:
+    - **Always Inspect DB First (MCP)**: Whenever asked to create, update, or query a Beanie `Document` model or write a FastAPI endpoint involving database operations, ALWAYS use the `mongodb` MCP tools (`collection-schema`, `collection-indexes`, `list-collections`) first to verify the real collection structure and indexes before writing code.
+    - **Beanie + Pydantic v2 Syntax**: Use `Annotated[type, Indexed(...)]` or `IndexModel` inside `class Settings: indexes = [...]`. Always use `.model_dump()` instead of deprecated `.dict()`. Initialize Beanie inside FastAPI's `lifespan` context manager using `AsyncMongoClient` with proper connection pooling (`maxPoolSize`, `minPoolSize`).
+    - **High-Performance Queries**: Never use `fetch_links=True` in list endpoints. Use `.project(ProjectionModel)` for read-heavy endpoints to avoid loading full documents. Use atomic updates (`update_one` / `$set`) instead of full `.save()` when modifying specific fields. Before writing complex queries or aggregations, check `collection-indexes` via MCP to ensure the query hits an index (strict IXSCAN, no COLLSCAN).
 
 
 
