@@ -6,7 +6,7 @@ from src.config import config
 from src.error.api_error import ApiError
 from src.util.catch_async import catch_async
 from src.util.http_status import status
-from src.util.request_body import get_body, get_user
+from src.util.request_body import get_body, get_client_ip, get_user
 from src.util.send_response import send_response
 
 
@@ -16,6 +16,7 @@ def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:
         refresh_token,
         secure=config.env == "production",
         httponly=True,
+        samesite="lax",
     )
 
 
@@ -47,7 +48,11 @@ async def resend_activation_code(request: Request) -> JSONResponse:
 
 @catch_async
 async def activate_account(request: Request) -> JSONResponse:
-    result = await AuthService.activate_account(await get_body(request))
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    result = await AuthService.activate_account(
+        await get_body(request), ip=ip, user_agent=user_agent
+    )
 
     response = send_response(
         {
@@ -63,7 +68,11 @@ async def activate_account(request: Request) -> JSONResponse:
 
 @catch_async
 async def login_account(request: Request) -> JSONResponse:
-    result = await AuthService.login_account(await get_body(request))
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    result = await AuthService.login_account(
+        await get_body(request), ip=ip, user_agent=user_agent
+    )
 
     msg = (
         "Log in successful. Account deletion request has been canceled."
@@ -85,7 +94,11 @@ async def login_account(request: Request) -> JSONResponse:
 
 @catch_async
 async def google_sign_in(request: Request) -> JSONResponse:
-    result = await AuthService.google_sign_in(await get_body(request))
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    result = await AuthService.google_sign_in(
+        await get_body(request), ip=ip, user_agent=user_agent
+    )
 
     msg = (
         "Log in successful. Account deletion request has been canceled."
@@ -107,7 +120,11 @@ async def google_sign_in(request: Request) -> JSONResponse:
 
 @catch_async
 async def apple_sign_in(request: Request) -> JSONResponse:
-    result = await AuthService.apple_sign_in(await get_body(request))
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    result = await AuthService.apple_sign_in(
+        await get_body(request), ip=ip, user_agent=user_agent
+    )
 
     msg = (
         "Log in successful. Account deletion request has been canceled."
@@ -181,13 +198,95 @@ async def reset_password(request: Request) -> JSONResponse:
 async def refresh_token(request: Request) -> JSONResponse:
     body = await get_body(request)
     token = request.cookies.get("refreshToken") or body.get("refreshToken")
-    result = await AuthService.refresh_token(token)
-    return send_response(
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    result = await AuthService.refresh_token(token, ip=ip, user_agent=user_agent)
+
+    response = send_response(
         {
             "statusCode": 200,
             "success": True,
             "message": "Access token refreshed successfully",
             "data": result,
+        }
+    )
+    if "refreshToken" in result:
+        _set_refresh_cookie(response, result["refreshToken"])
+    return response
+
+
+@catch_async
+async def list_sessions(request: Request) -> JSONResponse:
+    user = get_user(request)
+    if not user:
+        raise ApiError(status.UNAUTHORIZED, "Unauthorized")
+
+    current_session_id = user.get("sessionId")
+    sessions = await AuthService.list_sessions(
+        user["authId"], current_session_id=current_session_id
+    )
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Active sessions retrieved successfully",
+            "data": sessions,
+        }
+    )
+
+
+@catch_async
+async def logout(request: Request) -> JSONResponse:
+    user = get_user(request)
+    body = await get_body(request)
+    token = request.cookies.get("refreshToken") or body.get("refreshToken")
+    session_id = user.get("sessionId") if user else None
+
+    await AuthService.logout_current_session(token, session_id=session_id)
+    response = send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Logged out successfully",
+        }
+    )
+    response.delete_cookie("refreshToken")
+    return response
+
+
+@catch_async
+async def logout_other_devices(request: Request) -> JSONResponse:
+    user = get_user(request)
+    if not user:
+        raise ApiError(status.UNAUTHORIZED, "Unauthorized")
+
+    current_session_id = user.get("sessionId")
+    count = await AuthService.logout_other_sessions(
+        user["authId"], current_session_id=current_session_id
+    )
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": f"Logged out from {count} other device(s) successfully",
+            "data": {"revokedCount": count},
+        }
+    )
+
+
+@catch_async
+async def revoke_session(request: Request) -> JSONResponse:
+    user = get_user(request)
+    if not user:
+        raise ApiError(status.UNAUTHORIZED, "Unauthorized")
+
+    session_id = request.path_params.get("session_id", "")
+    await AuthService.revoke_single_session(user["authId"], session_id)
+    return send_response(
+        {
+            "statusCode": 200,
+            "success": True,
+            "message": "Device session revoked successfully",
         }
     )
 
@@ -249,3 +348,7 @@ class AuthController:
     reset_password = staticmethod(reset_password)
     forget_pass_otp_verify = staticmethod(forget_pass_otp_verify)
     resend_activation_code = staticmethod(resend_activation_code)
+    list_sessions = staticmethod(list_sessions)
+    logout = staticmethod(logout)
+    logout_other_devices = staticmethod(logout_other_devices)
+    revoke_session = staticmethod(revoke_session)

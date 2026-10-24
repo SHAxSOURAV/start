@@ -25,6 +25,7 @@ All models (except embedded sub-documents) inherit from `TimestampedDocument` ([
 erDiagram
     AUTHS ||--o| USERS : "authId (1:1)"
     AUTHS ||--o| ADMINS : "authId (1:1)"
+    AUTHS ||--o{ SESSIONS : "authId (1:N)"
     CHATS ||--|{ MESSAGES : "chatId (1:N)"
     USERS ||--o{ REVIEWS : "user (1:N)"
     USERS ||--o{ FEEDBACKS : "user (1:N)"
@@ -58,6 +59,9 @@ erDiagram
 | `activationCode` | `string` | `str \| None` | No | `None` | Registration activation OTP |
 | `activationCodeExpire` | `Date` | `datetime \| None` | No | `None` | Activation OTP expiration |
 | `activationAttempts` | `int` | `int \| None` | No | `0` | Rate limiter count for activation OTP |
+| `passwordChangedAt` | `Date` | `datetime \| None` | No | `None` | Timestamp of last password change/reset (invalidates old JWT sessions) |
+| `failedLoginAttempts` | `int` | `int \| None` | No | `0` | Consecutive failed password attempts counter (locks account at 5) |
+| `lockUntil` | `Date` | `datetime \| None` | No | `None` | Expiration timestamp for temporary brute force account lockout |
 
 #### Indexes
 | Index Keys | Type | Options | Purpose |
@@ -69,7 +73,36 @@ erDiagram
 
 ---
 
-### 2.2 `users` (User Model)
+### 2.2 `sessions` (Session Model)
+- **Source**: [src/app/module/auth/session_model.py](file:///c:/Users/mdsad/Documents/start/src/app/module/auth/session_model.py)
+- **Purpose**: Tracks active user sessions, device identifiers, client IP, Refresh Token Rotation (RTR) hashes, and 15-second grace periods for token reuse detection.
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Validation / Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `authId` | `ObjectId` | `PydanticObjectId` | Yes | - | Foreign Key -> `auths._id` |
+| `userId` | `ObjectId` | `PydanticObjectId` | Yes | - | Foreign Key -> `users._id` (or `admins._id`) |
+| `refreshTokenHash` | `string` | `str` | Yes | - | SHA-256 hash of active refresh token |
+| `previousTokenHash` | `string` | `str \| None` | No | `None` | SHA-256 hash of rotated token (grace period) |
+| `rotatedAt` | `Date` | `datetime \| None` | No | `None` | Timestamp when rotation occurred |
+| `device` | `string` | `str` | No | `"Unknown Device"` | Human-readable client platform/browser |
+| `ip` | `string` | `str` | No | `"unknown"` | Client IP address at session creation/refresh |
+| `userAgent` | `string` | `str` | No | `""` | Raw HTTP User-Agent string |
+| `isValid` | `bool` | `bool` | No | `True` | Session validity status (False when revoked) |
+| `expiresAt` | `Date` | `datetime` | Yes | - | Refresh token TTL expiration |
+| `lastActiveAt` | `Date` | `datetime` | Yes | - | Timestamp of last access or rotation |
+
+#### Indexes
+| Index Keys | Type | Options | Purpose |
+| :--- | :--- | :--- | :--- |
+| `[("authId", 1)]` | Single field | Default | Fast lookup of all user sessions |
+| `[("refreshTokenHash", 1)]` | Single field | `unique=True` | Unique lookup for active refresh token validation |
+| `[("expiresAt", 1)]` | Single field | `expireAfterSeconds=0` | MongoDB TTL index for automatic expired session cleanup |
+| `[("authId", 1), ("isValid", 1)]` | Compound | Default | Fast lookup of active valid sessions during mass revocation |
+
+---
+
+### 2.3 `users` (User Model)
 - **Source**: [src/app/module/user/user_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/user/user_model.py)
 - **Purpose**: User profile information, contact numbers, address, and live geospatial coordinates.
 
@@ -98,7 +131,7 @@ erDiagram
 
 ---
 
-### 2.3 `admins` (Admin Model)
+### 2.4 `admins` (Admin Model)
 - **Source**: [src/app/module/admin/admin_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/admin/admin_model.py)
 - **Purpose**: Admin and Super Admin profile metadata.
 
@@ -123,7 +156,7 @@ erDiagram
 
 ---
 
-### 2.4 `chats` (Chat Model)
+### 2.5 `chats` (Chat Model)
 - **Source**: [src/app/module/chat/chat_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/chat/chat_model.py)
 - **Purpose**: Chat room metadata between two or more participants.
 
@@ -139,7 +172,7 @@ erDiagram
 
 ---
 
-### 2.5 `messages` (Message Model)
+### 2.6 `messages` (Message Model)
 - **Source**: [src/app/module/chat/message_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/chat/message_model.py)
 - **Purpose**: Individual chat messages. Separated from `chats` to prevent the 16MB document cap limit.
 
@@ -160,7 +193,7 @@ erDiagram
 
 ---
 
-### 2.6 `notifications` (Notification Model)
+### 2.7 `notifications` (Notification Model)
 - **Source**: [src/app/module/notification/notification_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/notification/notification_model.py)
 - **Purpose**: In-app notifications for end users.
 
@@ -179,7 +212,7 @@ erDiagram
 
 ---
 
-### 2.7 `adminnotifications` (AdminNotification Model)
+### 2.8 `adminnotifications` (AdminNotification Model)
 - **Source**: [src/app/module/notification/admin_notification_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/notification/admin_notification_model.py)
 - **Purpose**: Global system alerts and administrator notifications.
 
@@ -192,7 +225,7 @@ erDiagram
 
 ---
 
-### 2.8 `feedbacks` (Feedback Model)
+### 2.9 `feedbacks` (Feedback Model)
 - **Source**: [src/app/module/feedback/feedback_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/feedback/feedback_model.py)
 - **Purpose**: User customer feedback submissions and admin responses.
 
@@ -207,7 +240,7 @@ erDiagram
 
 ---
 
-### 2.9 `reviews` (Review Model)
+### 2.10 `reviews` (Review Model)
 - **Source**: [src/app/module/review/review_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/review/review_model.py)
 - **Purpose**: User reviews and ratings (1 to 5).
 
@@ -220,7 +253,7 @@ erDiagram
 
 ---
 
-### 2.10 Static Content Management Collections (`manage_model.py`)
+### 2.11 Static Content Management Collections (`manage_model.py`)
 - **Source**: [src/app/module/manage/manage_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/manage/manage_model.py)
 - All inherit from `_Description(TimestampedDocument)` containing a single `description: str` field.
 

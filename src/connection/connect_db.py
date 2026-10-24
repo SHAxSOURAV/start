@@ -6,6 +6,7 @@ from pymongo import AsyncMongoClient
 
 from src.app.module.admin.admin_model import Admin
 from src.app.module.auth.auth_model import Auth
+from src.app.module.auth.session_model import Session
 from src.app.module.chat.chat_model import Chat
 from src.app.module.chat.message_model import Message
 from src.app.module.feedback.feedback_model import Feedback
@@ -24,6 +25,7 @@ from src.config import config
 
 DOCUMENT_MODELS = [
     Auth,
+    Session,
     User,
     Admin,
     TermsConditions,

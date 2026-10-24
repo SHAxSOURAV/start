@@ -6,9 +6,10 @@ EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def check_email(value: str) -> str:
-    if not EMAIL_REGEX.match(value):
+    cleaned = value.strip().lower()
+    if not EMAIL_REGEX.match(cleaned):
         raise ValueError("Please provide a valid email address")
-    return value
+    return cleaned
 
 
 def check_password(value: str) -> str:

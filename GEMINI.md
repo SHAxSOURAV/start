@@ -12,6 +12,6 @@ Refer to [AGENTS.md](file:///c:/Users/Sourav/Documents/Start/AGENTS.md) for the 
 7. **Notification Management & Catalog**: Maintain [docs/NOTIFICATIONS.md](file:///c:/Users/Sourav/Documents/Start/docs/NOTIFICATIONS.md) for every notification trigger in the backend. Use OneSignal REST API (`POST https://api.onesignal.com/notifications`) with `include_aliases: {"external_id": [user_id]}` for non-blocking push delivery.
 8. **Modular Architecture & File Limit**: Strictly enforce 0 files over 1,000 lines. Keep files clean, modular, and adhering to relevant layer naming (`*_model.py`, `*_service.py`, `*_controller.py`, `*_routes.py`, `*_validation.py`).
 9. **Database Schema Catalog**: Maintain [docs/DATABASE_SCHEMA.md](file:///c:/Users/Sourav/Documents/Start/docs/DATABASE_SCHEMA.md). Whenever creating or modifying models, collections, fields, or indexes, immediately update the schema catalog.
-
+10. **Modern Industry Standards & Context7**: Always enforce the latest industry-standard versions and patterns. Use Context7 MCP (`context7`) or Web Search to fetch official live documentation before implementing packages. Never write legacy or deprecated code.
 
 

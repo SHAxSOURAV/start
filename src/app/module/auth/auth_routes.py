@@ -6,6 +6,8 @@ from src.app.middleware.limiter import (
     delete_me_limiter,
     email_resend_cooldown_limiter,
     limiter,
+    login_email_cooldown_limiter,
+    login_limiter,
     otp_email_cooldown_limiter,
     otp_send_limiter,
     otp_verify_limiter,
@@ -24,7 +26,8 @@ router.add_api_route(
     AuthController.sign_in,
     methods=["POST"],
     dependencies=[
-        Depends(limiter),
+        Depends(login_limiter),
+        Depends(login_email_cooldown_limiter),
         Depends(validate_request(AuthValidation.sign_in)),
     ],
     summary="Sign in to user account",
@@ -36,7 +39,7 @@ router.add_api_route(
     AuthController.google_sign_in,
     methods=["POST"],
     dependencies=[
-        Depends(limiter),
+        Depends(login_limiter),
         Depends(validate_request(AuthValidation.google_sign_in)),
     ],
     summary="Sign in or register with Google OAuth ID token",
@@ -48,7 +51,7 @@ router.add_api_route(
     AuthController.apple_sign_in,
     methods=["POST"],
     dependencies=[
-        Depends(limiter),
+        Depends(login_limiter),
         Depends(validate_request(AuthValidation.apple_sign_in)),
     ],
     summary="Sign in or register with Apple identity token",
@@ -90,7 +93,7 @@ router.add_api_route(
     summary="Resend activation OTP",
 )
 
-# 4. Token Refresh
+# 4. Token Refresh & Session Logout
 router.add_api_route(
     "/refresh-token",
     AuthController.refresh_token,
@@ -99,7 +102,13 @@ router.add_api_route(
         Depends(otp_verify_limiter),
         Depends(validate_request(AuthValidation.refresh_token)),
     ],
-    summary="Exchange refresh token for access token",
+    summary="Exchange and rotate refresh token for new access and refresh tokens",
+)
+router.add_api_route(
+    "/logout",
+    AuthController.logout,
+    methods=["POST"],
+    summary="Log out from current device session and clear refresh token cookie",
 )
 
 # 5. Password Reset Flow
@@ -169,6 +178,35 @@ router.add_api_route(
         Depends(validate_request(AuthValidation.delete_me)),
     ],
     summary="Soft delete user account (30-day retention with password confirmation)",
+)
+
+# 8. Device & Session Management
+router.add_api_route(
+    "/sessions",
+    AuthController.list_sessions,
+    methods=["GET"],
+    dependencies=[
+        Depends(auth(config.auth_level.user)),
+    ],
+    summary="List all active device sessions for authenticated user",
+)
+router.add_api_route(
+    "/logout-other-devices",
+    AuthController.logout_other_devices,
+    methods=["POST"],
+    dependencies=[
+        Depends(auth(config.auth_level.user)),
+    ],
+    summary="Log out from all other active devices except current session",
+)
+router.add_api_route(
+    "/sessions/{session_id}",
+    AuthController.revoke_session,
+    methods=["DELETE"],
+    dependencies=[
+        Depends(auth(config.auth_level.user)),
+    ],
+    summary="Remotely revoke a specific device session",
 )
 
 # --- Backward compatibility aliases (omitted from OpenAPI docs) ---

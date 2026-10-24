@@ -35,6 +35,9 @@ class Auth(TimestampedDocument):
     activationCode: str | None = None
     activationCodeExpire: datetime | None = None
     activationAttempts: int | None = 0
+    passwordChangedAt: datetime | None = None
+    failedLoginAttempts: int | None = 0
+    lockUntil: datetime | None = None
 
     class Settings:
         name = "auths"
@@ -50,9 +53,10 @@ class Auth(TimestampedDocument):
     @field_validator("email")
     @classmethod
     def _validate_email(cls, value: str) -> str:
-        if not EMAIL_REGEX.match(value):
+        cleaned = value.strip().lower()
+        if not EMAIL_REGEX.match(cleaned):
             raise ValueError("Please provide a valid email address")
-        return value
+        return cleaned
 
     @field_validator("role")
     @classmethod

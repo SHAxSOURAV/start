@@ -38,6 +38,15 @@ def auth(
         if not is_exist.isActive:
             raise ApiError(status.FORBIDDEN, "Account is not activated")
 
+        # Invalidate access tokens issued before password was changed
+        if is_exist.passwordChangedAt:
+            token_iat = verify_user.get("iat")
+            if token_iat is not None and token_iat < int(is_exist.passwordChangedAt.timestamp()):
+                raise ApiError(
+                    status.UNAUTHORIZED,
+                    "Password was recently changed. Please log in again.",
+                )
+
         if roles and verify_user["role"] not in roles:
             raise ApiError(
                 status.FORBIDDEN,

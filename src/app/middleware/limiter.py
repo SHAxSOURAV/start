@@ -106,6 +106,15 @@ def create_email_cooldown_limiter(
 
 # --- Pre-configured guards for Auth endpoints ---
 limiter = create_limiter()
+login_limiter = create_limiter(
+    window_ms=15 * 60 * 1000,
+    limit=10,
+    message="Too many sign-in attempts from this IP address. Please try again after 15 minutes.",
+)
+login_email_cooldown_limiter = create_email_cooldown_limiter(
+    cooldown_seconds=3.0,
+    message="Too many rapid attempts for this account. Please wait 3 seconds before trying again.",
+)
 otp_send_limiter = create_limiter(window_ms=15 * 60 * 1000, limit=3)
 otp_verify_limiter = create_limiter(window_ms=15 * 60 * 1000, limit=5)
 otp_email_cooldown_limiter = create_email_cooldown_limiter(cooldown_seconds=5.0)

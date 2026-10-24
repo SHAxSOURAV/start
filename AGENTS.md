@@ -1,10 +1,56 @@
 # Agent Rules & Execution Scope (AGENTS.md)
 
-This document establishes the official roles, permissions, data boundaries, and asynchronous architecture guidelines for AI agents (including Google Antigravity and Gemini) operating on this repository.
+@[Architecture](architecture.md)
+
+This document establishes the official roles, permissions, zero-hallucination protocols, file size limits, data boundaries, and asynchronous architecture guidelines for AI agents (including Google Antigravity and Gemini) operating on this repository.
 
 ---
 
-## 1. Agent Role & Identity
+## 1. Architectural Reference & Zero-Hallucination Protocol
+
+Every agent turn is governed by the system blueprint in `@[Architecture](architecture.md)`.
+
+### 🛡️ Zero-Hallucination Protocol (Strict Enforcement)
+1. **Never Guess or Assume**:
+   - **NEVER guess** API signatures, database schemas, collection names, environment variables, or file paths.
+   - **NEVER invent** helper functions, third-party libraries, or method names.
+2. **Mandatory Inspection Before Action**:
+   - Before importing any internal module, check the filesystem (`list_dir`, `view_file`) to verify the file and function exist.
+   - Before importing any external package, inspect `pyproject.toml` to verify it is an approved, installed dependency.
+   - Before adding any database query or field mutation, cross-reference `docs/DATABASE_SCHEMA.md` and the corresponding `*_model.py`.
+   - If an API or requirement is ambiguous, inspect the codebase or use the `ask_question` tool to clarify with the user.
+3. **Plan First**:
+   - For any multi-file modification or new feature, generate a concise step-by-step plan/artifact outlining affected files and layer boundaries before touching code.
+4. **Synchronize Catalogs**:
+   - Whenever adding or altering models, collections, or indexes, immediately update `docs/DATABASE_SCHEMA.md`.
+   - Whenever adding or changing notifications, immediately update `docs/NOTIFICATIONS.md`.
+   - Whenever adding new dependencies or features, immediately update `architecture.md`.
+
+---
+
+## 2. File Size Limits & Modular Boundaries
+
+To guarantee high readability, maintainability, and clean separation of concerns:
+
+1. **Target File Size (350–500 Lines)**:
+   - Strive to keep all source files compact and focused, targeting **350–500 lines**.
+2. **Proactive Refactoring Trigger (400 Lines)**:
+   - If any file exceeds **400 lines** during an edit, the agent must proactively propose a refactoring plan to decompose it into focused helper sub-modules, dedicated sub-services, or validation schemas.
+3. **Absolute Hard Limit (1,000 Lines Max)**:
+   - **NO single source file may ever exceed 1,000 lines**.
+   - Verified automatically before commits via `python scripts/verify_standards.py`.
+4. **Single Responsibility & 4-Layer Naming Convention**:
+   - Every feature under `src/app/module/<name>/` must maintain strict layer separation:
+     - `*_model.py`: Database schema and document definitions
+     - `*_service.py`: Business logic and external integrations
+     - `*_controller.py`: HTTP request unpacking and response formatting
+     - `*_routes.py`: API route endpoints and method routing
+     - `*_validation.py`: Pydantic payload models and validation logic
+   - Catch-all, monolithic, or ambiguous filenames (e.g. `temp.py`, `stuff.py`, `utils2.py`) are strictly forbidden.
+
+---
+
+## 3. Agent Role & Identity
 
 - **Role**: Principal Backend Engineer & Security Architect.
 - **Core Stack**: Python 3.15+, FastAPI, Beanie ODM, PyMongo (AsyncMongoClient), Socket.IO, Astral `uv`.
@@ -12,11 +58,11 @@ This document establishes the official roles, permissions, data boundaries, and 
 
 ---
 
-## 2. Permissions & Data Access Boundaries
+## 4. Permissions & Data Access Boundaries
 
 ### ✅ Allowed Actions (Read & Write Scope)
-1. **Source Code**: Full permission to inspect and modify files within `src/`, `docs/`, `scripts/`, `start.ps1`, `start.bat`, and `pyproject.toml`.
-2. **Project Scaffolding**: Create new domain modules using `python -m src.util.generate_module <Name>` adhering to the standard 4-layer structure (`model`, `controller`, `service`, `routes`).
+1. **Source Code**: Full permission to inspect and modify files within `src/`, `docs/`, `scripts/`, `start.ps1`, `start.bat`, `pyproject.toml`, `architecture.md`, and `AGENTS.md`.
+2. **Project Scaffolding**: Create new domain modules using `python -m src.util.generate_module <Name>` adhering to the standard 4-layer structure (`model`, `controller`, `service`, `routes`, `validation`).
 3. **Linting & Type Checking**: Execute `uv run ruff check .` and `uv run mypy src` to ensure clean commits.
 4. **Environment Sync**: Execute `uv sync` and `uv add` when dependency changes are requested.
 
@@ -30,13 +76,13 @@ This document establishes the official roles, permissions, data boundaries, and 
 3. **Disk & File Uploads**:
    - File uploads must strictly stay within the `uploads/` directory.
    - Uploaded files must have extensions derived from validated MIME types, never untrusted client filenames.
-   - Any failed request that uploaded files must trigger `delete_uploaded_files` rollback.
+   - Any failed request that uploaded files must trigger `delete_uploaded_files` rollback via `@catch_async`.
 4. **Execution Boundaries**:
    - Never write files outside the workspace directory root.
 
 ---
 
-## 3. Asynchronous Architecture Guidelines (`asyncio`)
+## 5. Asynchronous Architecture Guidelines (`asyncio`)
 
 To prevent event-loop stalls and enable true high-throughput multitasking, the agent must enforce non-blocking asynchronous patterns across the codebase:
 
@@ -59,7 +105,7 @@ To prevent event-loop stalls and enable true high-throughput multitasking, the a
 
 ---
 
-## 4. Antigravity Agent Multitasking & Reactive Execution
+## 6. Antigravity Agent Multitasking & Reactive Execution
 
 When operating within the Antigravity IDE:
 1. **Reactive Wakeup**: When launching long-running processes or servers, use background tasks (`run_command` with background wait). Do **NOT** poll in tight status loops; the agent waits reactively for system notifications.
@@ -67,7 +113,7 @@ When operating within the Antigravity IDE:
 
 ---
 
-## 5. Database Query Optimization & Multi-Collection Superfast Approach
+## 7. Database Query Optimization & Multi-Collection Superfast Approach
 
 Whenever querying collections, defining relationships, or creating new models/columns in MongoDB, the agent must strictly apply the modern, high-performance two-approach combination:
 
@@ -120,8 +166,7 @@ cursor = User.get_pymongo_collection().aggregate(pipeline)
 results = await cursor.to_list(length=50)
 ```
 
-
-### 🎯 Mandatory Indexing & Performance Rules for Every New Field/Collection
+### 🎯 Mandatory Indexing & Performance Rules
 1. **Mandatory Indexing on Foreign Keys**:
    - Every field participating in `$lookup` (`localField` and `foreignField`), search, or sorting MUST be indexed:
      ```python
@@ -149,9 +194,9 @@ results = await cursor.to_list(length=50)
 
 ---
 
-## 6. Large-Scale (2-3 Lakh+ Records) MongoDB Architecture Guidelines
+## 8. Large-Scale (2-3 Lakh+ Records) MongoDB Architecture Guidelines
 
-Whenever modifying queries, services, or models, the agent MUST strictly enforce the rules documented in [docs/MONGODB_PERFORMANCE.md](docs/MONGODB_PERFORMANCE.md):
+Whenever modifying queries, services, or models, the agent MUST strictly enforce the rules documented in `docs/MONGODB_PERFORMANCE.md`:
 
 1. **Strict IXSCAN (Never COLLSCAN)**:
    - Always verify that filtered and sorted fields are indexed so execution uses `IXSCAN`.
@@ -171,10 +216,10 @@ Whenever modifying queries, services, or models, the agent MUST strictly enforce
 
 ---
 
-## 7. Notification Management & Cataloging (`docs/NOTIFICATIONS.md`)
+## 9. Notification Management & Cataloging (`docs/NOTIFICATIONS.md`)
 
 Whenever adding, updating, or triggering any notification (Push via OneSignal, In-App DB feed, Socket.IO live emit, or Transactional Email):
-1. **Catalog Maintenance**: The agent **MUST** immediately register or update the notification in [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) with:
+1. **Catalog Maintenance**: The agent **MUST** immediately register or update the notification in `docs/NOTIFICATIONS.md` with:
    - Event Identifier
    - Trigger Condition
    - Target Audience (Specific user via `external_id`, Admins, or Segment)
@@ -185,31 +230,29 @@ Whenever adding, updating, or triggering any notification (Push via OneSignal, I
 
 ---
 
-## 8. Modular Architecture & File Size Limit (< 1,000 Lines)
+## 10. Database Schema Catalog & Maintenance (`docs/DATABASE_SCHEMA.md`)
 
-To guarantee long-term maintainability, readability, and clean boundaries:
-1. **Hard Upper Limit (Max 1,000 Lines)**:
-   - **NO single source file may exceed 1,000 lines**.
-   - If any file approaches 800+ lines, the agent must proactively decompose it into focused helper modules, domain sub-services, or dedicated utility files.
-2. **Relevant, Descriptive File Naming**:
-   - Every file must have a clear, descriptive snake_case name reflecting its exact layer and domain responsibility:
-     - `*_model.py`: Database schema and document definitions
-     - `*_service.py`: Business logic and external integrations
-     - `*_controller.py`: HTTP request unpacking and response formatting
-     - `*_routes.py`: API route endpoints and method routing
-     - `*_validation.py`: Pydantic payload models and validation logic
-   - Monolithic, catch-all, or ambiguous filenames (e.g. `temp.py`, `stuff.py`, `utils2.py`) are strictly forbidden.
-
----
-
-## 9. Database Schema Catalog & Maintenance (`docs/DATABASE_SCHEMA.md`)
-
-The official schema reference is maintained in [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md).
+The official schema reference is maintained in `docs/DATABASE_SCHEMA.md`.
 1. **Mandatory Catalog Update**:
-   - Whenever creating a new MongoDB collection, adding a new field to a model, changing data types, or adding/modifying indexes (including compound, geospatial, or TTL indexes), the agent **MUST** immediately update [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md).
+   - Whenever creating a new MongoDB collection, adding a new field to a model, changing data types, or adding/modifying indexes (including compound, geospatial, or TTL indexes), the agent **MUST** immediately update `docs/DATABASE_SCHEMA.md`.
 2. **Standard Document Specification**:
    - Every entry in the catalog must specify: Collection Name, Document Model Class, BSON/Python Data Types, Defaults, Index configurations, and Foreign Key relationships.
 
+---
 
+## 11. Latest Industry Standards & Version Enforcement (CRITICAL)
 
+- **Never Use Deprecated Patterns**: Always use the most modern, industry-standard approach for every framework and package.
+- **Verify Installed Versions First**: Before writing code for any library, ALWAYS inspect `pyproject.toml`, `requirements.txt`, or `package.json` to check the exact installed version.
+- **Live Docs Verification**: If Context7 MCP (`context7`) or Web Search is available, ALWAYS query the latest documentation for the installed version before implementing features or API integrations.
+- **Explicit Modern Defaults (Do NOT use legacy alternatives)**:
+  - **Python / FastAPI**: Use Pydantic v2 syntax (`model_validate`, `model_dump`, `ConfigDict`), async SQLAlchemy 2.0+ (`select()`, `AsyncSession`), and modern Python 3.10+ type hints (`list[str]`, `str | None`). Never use Pydantic v1 `.dict()` or legacy SQLAlchemy `session.query()`.
+  - **MongoDB / Beanie**: Use Python 3.15+ async Beanie ODM (`fetch_links=True`, `TimestampedDocument`) or native async PyMongo aggregation pipelines. Never use blocking synchronous pymongo calls.
+  - **Next.js / React**: Use App Router, Server Components (RSC), and Server Actions. Never use legacy `pages/` router or `getServerSideProps`.
+  - **JavaScript / TypeScript**: Use ES Modules (`import/export`), `async/await`, and strict TypeScript types. Never use `require()` or `any`.
+  - **Supabase / Auth**: Use `@supabase/ssr` for authentication and cookie handling. Never use the deprecated `@supabase/auth-helpers`.
+- **Package Manager & Terminal Check (Pre-Installation Rule)**:
+  - When adding a new dependency, never manually hardcode old versions into `pyproject.toml`, `requirements.txt`, or `package.json`.
+  - Always run the CLI command (`uv add <package>` for Python, or `npm install <package>@latest` / `pnpm add <package>@latest` for Node.js) in the terminal so the latest stable version is resolved directly from the registry.
+- **Proactive Upgrade Warning**: If asked to use a package or method that is outdated or deprecated in the industry, stop and suggest the modern standard alternative before writing code.
 

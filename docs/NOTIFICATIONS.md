@@ -54,6 +54,7 @@ To ensure push notifications reach the specific user:
 | `AUTH_ACTIVATION_OTP` | Upon user registration (`/sign-up`) or resend (`/resend-otp`) | ✉️ Transactional Email | Registered Email | **Subject**: `Activation Code`<br>**Content**: 6-digit OTP code | N/A (Email) |
 | `AUTH_RESET_PASSWORD_OTP` | When user requests password reset (`/forgot-password`) | ✉️ Transactional Email | Account Email | **Subject**: `Password Reset Code`<br>**Content**: 6-digit OTP code | N/A (Email) |
 | `AUTH_PASSWORD_CHANGED` | Upon successful password modification (`/change-password`) | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Security Alert`<br>**Message**: `Your account password was recently changed.` | `{"type": "security", "action": "password_changed"}` |
+| `AUTH_NEW_DEVICE_LOGIN` | When sign-in is detected from a new/unrecognized device | ✉️ Transactional Email<br>📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id` / Email) | **Subject / Title**: `Security Alert: New Sign-in`<br>**Content**: Device name, client IP & UTC timestamp | `{"type": "security", "action": "new_device_login"}` |
 | `ADMIN_SYSTEM_ALERT` | System-level broadcast or administrative notice | 📱 OneSignal Push (Segment)<br>🔔 Admin In-App Feed | All Subscribed Users / Admins | **Title**: `<Alert Title>`<br>**Message**: `<Alert Body>` | `{"type": "system_announcement"}` |
 
 ---

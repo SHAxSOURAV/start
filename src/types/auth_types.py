@@ -8,5 +8,6 @@ class AuthUserPayload(TypedDict):
     userId: str
     email: str
     role: str
+    sessionId: NotRequired[str]
     iat: NotRequired[int]
     exp: NotRequired[int]

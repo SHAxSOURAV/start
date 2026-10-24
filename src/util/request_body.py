@@ -49,3 +49,11 @@ def get_user(request: Request) -> AuthUserPayload | None:
 
 def get_files(request: Request) -> dict[str, list[dict[str, Any]]]:
     return getattr(request.state, "files", {}) or {}
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
