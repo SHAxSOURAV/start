@@ -93,7 +93,8 @@ async def create_checkout_session(
                         "currency": currency,
                         "product_data": {
                             "name": validated.productName,
-                            "description": validated.description or validated.productName,
+                            "description": validated.description
+                            or validated.productName,
                         },
                         "unit_amount": unit_amount,
                     },
@@ -188,9 +189,7 @@ async def create_payment_intent(
     }
 
 
-async def handle_webhook(
-    raw_payload: bytes, sig_header: str | None
-) -> dict[str, Any]:
+async def handle_webhook(raw_payload: bytes, sig_header: str | None) -> dict[str, Any]:
     """Verifies Stripe Webhook signature and processes asynchronous payment events.
 
     Dispatches OneSignal push + MongoDB in-app notifications on completion or failure.
@@ -208,9 +207,7 @@ async def handle_webhook(
         raise ApiError(status.BAD_REQUEST, "Missing Stripe-Signature header")
 
     try:
-        event = stripe.Webhook.construct_event(
-            raw_payload, sig_header, webhook_secret
-        )
+        event = stripe.Webhook.construct_event(raw_payload, sig_header, webhook_secret)
     except stripe.SignatureVerificationError as err:
         logger.warning(f"Stripe Webhook Signature Verification Failed: {err}")
         raise ApiError(status.BAD_REQUEST, "Invalid Stripe webhook signature") from err
@@ -263,7 +260,9 @@ async def handle_webhook(
                     },
                 )
             except Exception as notif_err:
-                error_logger.error(f"Failed to dispatch payment notification: {notif_err}")
+                error_logger.error(
+                    f"Failed to dispatch payment notification: {notif_err}"
+                )
 
     # 2. PaymentIntent Succeeded (In-App Elements)
     elif event_type == "payment_intent.succeeded":
@@ -292,7 +291,9 @@ async def handle_webhook(
                     data={"type": "payment", "intentId": intent_id},
                 )
             except Exception as notif_err:
-                error_logger.error(f"Failed to dispatch payment intent notification: {notif_err}")
+                error_logger.error(
+                    f"Failed to dispatch payment intent notification: {notif_err}"
+                )
 
     # 3. PaymentIntent Failed (Declined card / insufficient funds)
     elif event_type == "payment_intent.payment_failed":
@@ -319,10 +320,16 @@ async def handle_webhook(
                     message=f"Your payment could not be processed: {failure_msg}",
                     to_id=str(payment["userId"]),
                     notification_type=EnumNotificationType.PAYMENT,
-                    data={"type": "payment", "intentId": intent_id, "error": failure_msg},
+                    data={
+                        "type": "payment",
+                        "intentId": intent_id,
+                        "error": failure_msg,
+                    },
                 )
             except Exception as notif_err:
-                error_logger.error(f"Failed to dispatch payment failure alert: {notif_err}")
+                error_logger.error(
+                    f"Failed to dispatch payment failure alert: {notif_err}"
+                )
 
     # 4. Charge Refunded
     elif event_type == "charge.refunded":
@@ -348,7 +355,9 @@ async def handle_webhook(
                     data={"type": "payment", "status": EnumPaymentStatus.REFUNDED},
                 )
             except Exception as notif_err:
-                error_logger.error(f"Failed to dispatch refund notification: {notif_err}")
+                error_logger.error(
+                    f"Failed to dispatch refund notification: {notif_err}"
+                )
 
     return {"status": "success", "eventId": event_id, "eventType": event_type}
 

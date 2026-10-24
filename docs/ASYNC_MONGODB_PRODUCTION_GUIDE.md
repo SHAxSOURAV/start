@@ -85,6 +85,7 @@ from pymongo import AsyncMongoClient
 client = AsyncMongoClient("mongodb://localhost:27017")
 db = client.my_database
 
+
 async def fetch_user_raw(email: str) -> dict | None:
     return await db.users.find_one({"email": email})
 ```
@@ -113,13 +114,16 @@ This template strictly enforces **The Hybrid Approach**:
 async def get_user_by_id(user_id: str) -> User | None:
     return await User.get(PydanticObjectId(user_id))
 
+
 # 2. 10% Case: High-Performance Raw Aggregation (Zero Pydantic Overhead)
 async def get_active_users_aggregate(start_date: datetime) -> list[dict]:
-    cursor = await User.get_pymongo_collection().aggregate([
-        {"$match": {"createdAt": {"$gte": start_date}, "isDeleted": {"$ne": True}}},
-        {"$group": {"_id": "$role", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}
-    ])
+    cursor = await User.get_pymongo_collection().aggregate(
+        [
+            {"$match": {"createdAt": {"$gte": start_date}, "isDeleted": {"$ne": True}}},
+            {"$group": {"_id": "$role", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+        ]
+    )
     return await cursor.to_list(length=100)
 ```
 
@@ -165,6 +169,7 @@ from typing import Annotated, Optional
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import BaseModel, Field
 
+
 # 1. Parent Collection: User
 class User(Document):
     name: str
@@ -186,13 +191,13 @@ class AuthorSummary(BaseModel):
 class Post(Document):
     title: str
     content: str
-    
+
     # A) Real Relation: Indexed Foreign Key for blazing fast filtering
     author_id: Annotated[PydanticObjectId, Indexed()]
-    
+
     # B) Extended Snapshot: Embedded for zero-join ultra-fast feed reads
     author: AuthorSummary
-    
+
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
@@ -262,16 +267,19 @@ graph LR
 from bson import ObjectId
 from pydantic import BaseModel
 
+
 # 1. Lightweight response models: zero unused fields
 class PopulatedUser(BaseModel):
     name: str
     email: str
+
 
 class OrderWithUserResponse(BaseModel):
     id: str
     total_amount: float
     status: str
     user: PopulatedUser  # Only required fields are populated!
+
 
 # 2. Ultra-Fast Aggregation Pipeline
 async def get_orders_fast(limit: int = 20) -> list[OrderWithUserResponse]:
@@ -280,13 +288,12 @@ async def get_orders_fast(limit: int = 20) -> list[OrderWithUserResponse]:
         {"$match": {"status": "completed"}},
         {"$sort": {"createdAt": -1}},
         {"$limit": limit},
-
         # Step B: Optimized Population ($lookup with sub-pipeline)
         {
             "$lookup": {
-                "from": "users",              # Target collection
-                "localField": "userId",       # Foreign Key ObjectId
-                "foreignField": "_id",        # Primary Key (strictly indexed)
+                "from": "users",  # Target collection
+                "localField": "userId",  # Foreign Key ObjectId
+                "foreignField": "_id",  # Primary Key (strictly indexed)
                 "as": "user_info",
                 "pipeline": [
                     # Pull ONLY name and email; never pull passwords or heavy objects!
@@ -294,10 +301,8 @@ async def get_orders_fast(limit: int = 20) -> list[OrderWithUserResponse]:
                 ],
             }
         },
-
         # Step C: Convert array to single object ($unwind)
         {"$unwind": {"path": "$user_info", "preserveNullAndEmptyArrays": True}},
-
         # Step D: Final clean projection
         {
             "$project": {
@@ -325,21 +330,21 @@ For many endpoints, executing two separate primary index queries in Python is ev
 ```python
 from beanie.operators import In
 
+
 async def get_orders_batch_populate() -> list[dict]:
     # Query 1: Fetch 20 orders using IXSCAN (1ms)
     orders = await Order.find(Order.status == "completed").limit(20).to_list()
-    
+
     # Extract unique user_ids into a set
     user_ids = list({order.userId for order in orders if order.userId})
-    
+
     # Query 2: Single $in query hitting Primary Index _id (1ms)
     users = await User.find(In(User.id, user_ids)).project(UserShortView).to_list()
     user_map = {u.id: u for u in users}
-    
+
     # Map in Python memory in 0.01ms (Zero Database Join CPU load!)
     return [
-        {**order.model_dump(), "user": user_map.get(order.userId)}
-        for order in orders
+        {**order.model_dump(), "user": user_map.get(order.userId)} for order in orders
     ]
 ```
 * **Why this excels**:

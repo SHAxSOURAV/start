@@ -96,7 +96,6 @@ class EnvSchema(BaseSettings):
     S3_RETENTION_DOCUMENT_DAYS: int = 365
 
 
-
 try:
     env = EnvSchema()  # type: ignore[call-arg]
 except ValidationError as exc:

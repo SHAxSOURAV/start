@@ -158,6 +158,7 @@ async def upload_file_to_cloudinary(
         )
         return local_file_path
     except Exception as exc:
-        logger.error(f"Cloudinary upload exception: {exc}. Falling back to local storage.")
+        logger.error(
+            f"Cloudinary upload exception: {exc}. Falling back to local storage."
+        )
         return local_file_path
-

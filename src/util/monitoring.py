@@ -76,7 +76,9 @@ def scrub_sensitive_data(event: Event, hint: Hint) -> Event | None:
 def filter_transactions(event: Event, hint: Hint) -> Event | None:
     """Filters high-frequency health checks and docs to conserve Sentry transaction quota."""
     request_data = event.get("request") or {}
-    url_str = str(request_data.get("url") or "") if isinstance(request_data, dict) else ""
+    url_str = (
+        str(request_data.get("url") or "") if isinstance(request_data, dict) else ""
+    )
     transaction_name = str(event.get("transaction") or "")
 
     for ignored in IGNORED_TRANSACTION_PATHS:
@@ -122,9 +124,7 @@ def init_sentry() -> bool:
                 PyMongoIntegration(),
             ],
         )
-        logger.info(
-            f"Sentry APM & Crash Reporting initialized in '{config.env}' mode."
-        )
+        logger.info(f"Sentry APM & Crash Reporting initialized in '{config.env}' mode.")
         return True
 
     except Exception as exc:

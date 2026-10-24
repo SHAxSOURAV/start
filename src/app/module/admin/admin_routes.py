@@ -52,4 +52,3 @@ router.add_api_route(
     methods=["GET"],
     dependencies=[Depends(auth(config.auth_level.admin))],
 )
-

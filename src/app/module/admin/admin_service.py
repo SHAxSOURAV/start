@@ -166,4 +166,3 @@ class AdminService:
     get_overview_statistics = staticmethod(get_overview_statistics)
     get_charts_statistics = staticmethod(get_charts_statistics)
     get_breakdowns_statistics = staticmethod(get_breakdowns_statistics)
-

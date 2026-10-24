@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -8,7 +7,9 @@ class RevenueCatEvent(BaseModel):
     app_user_id: str
     original_app_user_id: str | None = None
     aliases: list[str] = Field(default_factory=list)
-    type: str  # e.g., INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE
+    type: (
+        str  # e.g., INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE
+    )
     product_id: str | None = None
     entitlement_ids: list[str] | None = None
     period_type: str | None = None

@@ -32,7 +32,6 @@ class EnumSubscriptionStore:
     UNKNOWN = "UNKNOWN"
 
 
-
 class EnumSocketEvent:
     CONNECTION = "connection"
     DISCONNECT = "disconnect"
@@ -53,7 +52,6 @@ class EnumNotificationType:
     SECURITY = "security"
     PAYMENT = "payment"
     PROMOTION = "promotion"
-
 
 
 class EnumLoginProvider:

@@ -73,7 +73,9 @@ async def upload_file_to_s3(
     - If S3 is unconfigured or upload fails -> logs warning and falls back to local_path.
     """
     if not is_s3_configured():
-        logger.warning("AWS S3 is not configured in .env. Falling back to local storage.")
+        logger.warning(
+            "AWS S3 is not configured in .env. Falling back to local storage."
+        )
         return local_path
 
     file_obj = Path(local_path)
@@ -118,7 +120,9 @@ async def upload_file_to_s3(
         unlink_file(local_path)
 
         s3_url = f"https://{bucket}.s3.{config.s3.region}.amazonaws.com/{s3_key}"
-        logger.info(f"File uploaded to AWS S3: {s3_url} (Category: {retention_category})")
+        logger.info(
+            f"File uploaded to AWS S3: {s3_url} (Category: {retention_category})"
+        )
         return s3_url
 
     except Exception as exc:

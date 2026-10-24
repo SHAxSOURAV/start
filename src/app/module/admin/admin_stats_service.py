@@ -141,7 +141,9 @@ async def get_overview_statistics(refresh: bool = False) -> dict[str, Any]:
 
     churn_rate = 0.0
     if int(total_subs) > 0:
-        churn_rate = round((int(canceled_subs) + int(expired_subs)) / int(total_subs) * 100, 2)
+        churn_rate = round(
+            (int(canceled_subs) + int(expired_subs)) / int(total_subs) * 100, 2
+        )
 
     data: dict[str, Any] = {
         "users": {
@@ -227,9 +229,7 @@ async def get_charts_statistics(
         {"$match": {"createdAt": {"$gte": seven_days_ago}}},
         {
             "$group": {
-                "_id": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$createdAt"}
-                },
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$createdAt"}},
                 "count": {"$sum": 1},
             }
         },
@@ -337,8 +337,7 @@ async def get_breakdowns_statistics(refresh: bool = False) -> dict[str, Any]:
     fb_status_raw: list[dict[str, Any]] = breakdown_results[6]
 
     users_by_role = [
-        {"role": item["_id"] or "UNKNOWN", "count": item["count"]}
-        for item in roles_raw
+        {"role": item["_id"] or "UNKNOWN", "count": item["count"]} for item in roles_raw
     ]
 
     users_by_auth_provider = [

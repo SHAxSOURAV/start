@@ -48,7 +48,9 @@ def start_jobs() -> None:
     scheduler.add_job(_s3_retention_tick, CronTrigger.from_crontab("0 3 * * *"))
     scheduler.start()
 
-    logger.info("Background jobs started (OTP cleanup + soft delete purge + S3 media retention)")
+    logger.info(
+        "Background jobs started (OTP cleanup + soft delete purge + S3 media retention)"
+    )
 
 
 def stop_jobs() -> None:

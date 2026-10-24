@@ -23,10 +23,12 @@ async def get_notification(
     notification_oid = ObjectId(str(query["notificationId"]))
 
     if role == EnumUserRole.ADMIN:
-        notification = await AdminNotification.get_pymongo_collection().find_one_and_update(
-            {"_id": notification_oid},
-            {"$set": {"isRead": True, "readAt": utcnow(), "updatedAt": utcnow()}},
-            return_document=True,
+        notification = (
+            await AdminNotification.get_pymongo_collection().find_one_and_update(
+                {"_id": notification_oid},
+                {"$set": {"isRead": True, "readAt": utcnow(), "updatedAt": utcnow()}},
+                return_document=True,
+            )
         )
         if not notification:
             raise ApiError(status.NOT_FOUND, "Notification not found")

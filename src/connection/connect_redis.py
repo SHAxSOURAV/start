@@ -221,4 +221,3 @@ class RedisService:
             await client.setex(key, max(1, ttl_seconds), serialized)
         except Exception as exc:
             logger.warning(f"Redis set_json error on key {key}: {exc}")
-

@@ -131,16 +131,12 @@ async def handle_webhook(
         sub_status = EnumSubscriptionStatus.EXPIRED
         is_auto_renewing = False
         notification_title = "Subscription Expired"
-        notification_body = (
-            "Your subscription has expired. Renew today to continue enjoying premium benefits."
-        )
+        notification_body = "Your subscription has expired. Renew today to continue enjoying premium benefits."
 
     elif event_type == "BILLING_ISSUE":
         sub_status = EnumSubscriptionStatus.BILLING_ISSUE
         notification_title = "Payment Alert ⚠️"
-        notification_body = (
-            "There was an issue processing your renewal. Please update your payment method."
-        )
+        notification_body = "There was an issue processing your renewal. Please update your payment method."
 
     # 4. Upsert Subscription State in MongoDB
     update_data: dict[str, Any] = {
@@ -212,10 +208,10 @@ async def get_my_subscription(user_id: str) -> dict[str, Any]:
         }
 
     now = utcnow()
-    is_active = (
-        sub.status in [EnumSubscriptionStatus.ACTIVE, EnumSubscriptionStatus.CANCELED]
-        and (sub.expiresAt is None or sub.expiresAt > now)
-    )
+    is_active = sub.status in [
+        EnumSubscriptionStatus.ACTIVE,
+        EnumSubscriptionStatus.CANCELED,
+    ] and (sub.expiresAt is None or sub.expiresAt > now)
 
     return {
         "enabled": is_enabled,

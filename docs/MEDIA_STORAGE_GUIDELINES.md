@@ -80,7 +80,7 @@ from src.util.media_storage import upload_media, delete_media
 image_url = await upload_media(
     local_path=local_file_path,
     folder="profile_images",
-    retention_category="profiles"  # or 'temp', 'chats', 'documents'
+    retention_category="profiles",  # or 'temp', 'chats', 'documents'
 )
 
 # 2. Cleanup old media when replaced
@@ -119,7 +119,7 @@ from src.util.s3 import generate_presigned_download_url
 
 secure_download_url = await generate_presigned_download_url(
     s3_url_or_key="documents/license_user_123.pdf",
-    expires_in=1800  # Valid for 30 minutes
+    expires_in=1800,  # Valid for 30 minutes
 )
 ```
 

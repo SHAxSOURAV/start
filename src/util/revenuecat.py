@@ -39,9 +39,7 @@ async def get_customer_active_entitlements(
         )
         return []
 
-    url = (
-        f"{REVENUECAT_BASE_URL}/projects/{project_id}/customers/{customer_id}/active_entitlements"
-    )
+    url = f"{REVENUECAT_BASE_URL}/projects/{project_id}/customers/{customer_id}/active_entitlements"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
