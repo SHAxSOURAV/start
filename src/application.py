@@ -5,6 +5,8 @@ src/app/ package that holds middleware, module and routes.
 """
 
 import time
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import yaml
@@ -24,14 +26,34 @@ from src.app.middleware.security_headers import security_headers
 from src.app.routes import router as routes
 from src.config import config
 from src.connection import connect_db
+from src.connection.connect_db import disconnect_db
+from src.connection.connect_redis import connect_redis, disconnect_redis
 from src.error.not_found_handler import NotFoundHandler
+from src.jobs import start_jobs, stop_jobs
 from src.util.cors_options import cors_options
+from src.util.monitoring import init_sentry
+
+# Initialize Sentry APM & Crash Reporting (strictly active only in production/staging)
+init_sentry()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    await connect_db.connect_db()
+    await connect_redis()
+    start_jobs()
+    yield
+    stop_jobs()
+    await disconnect_redis()
+    await disconnect_db()
+
 
 app = FastAPI(
     title="Mount Fuji",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=lifespan,
 )
 
 START_TIME = time.time()
@@ -68,24 +90,48 @@ async def root() -> JSONResponse:
     return JSONResponse(content="Welcome to Mount Fuji")
 
 
+@app.get("/health/live")
+async def health_live() -> JSONResponse:
+    """Liveness probe for Docker, Kubernetes, and container orchestrators.
+
+    Returns 200 OK if the ASGI process is running and event loop is responsive.
+    """
+    return JSONResponse(
+        status_code=200,
+        content={"status": "live", "uptime": round(time.time() - START_TIME, 2)},
+    )
+
+
 @app.get("/health")
+@app.get("/health/ready")
 @app.get("/api/v1/health")
-async def health() -> JSONResponse:
+async def health_ready() -> JSONResponse:
+    """Readiness probe checking MongoDB and Redis connections with response latency."""
     db_up = False
+    db_latency_ms: float | None = None
     if connect_db.client is not None:
         try:
+            t0 = time.perf_counter()
             await connect_db.client.admin.command("ping")
+            db_latency_ms = round((time.perf_counter() - t0) * 1000, 2)
             db_up = True
         except Exception:
             db_up = False
 
     redis_up = False
+    redis_latency_ms: float | None = None
     try:
-        from src.connection.connect_redis import get_redis_client
+        from src.connection.connect_redis import connect_redis, get_redis_client
 
         redis_client = get_redis_client()
+        if redis_client is None:
+            await connect_redis()
+            redis_client = get_redis_client()
+
         if redis_client is not None:
+            t0 = time.perf_counter()
             await redis_client.ping()
+            redis_latency_ms = round((time.perf_counter() - t0) * 1000, 2)
             redis_up = True
     except Exception:
         redis_up = False
@@ -98,9 +144,17 @@ async def health() -> JSONResponse:
             "status": (
                 "ok" if (db_up and redis_up) else ("degraded" if db_up else "down")
             ),
-            "uptime": time.time() - START_TIME,
-            "db": "up" if db_up else "down",
-            "redis": "up" if redis_up else "down",
+            "uptime": round(time.time() - START_TIME, 2),
+            "components": {
+                "database": {
+                    "status": "up" if db_up else "down",
+                    "latency_ms": db_latency_ms,
+                },
+                "redis": {
+                    "status": "up" if redis_up else "down",
+                    "latency_ms": redis_latency_ms,
+                },
+            },
         },
     )
 
