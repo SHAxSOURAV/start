@@ -9,5 +9,8 @@ class AuthUserPayload(TypedDict):
     email: str
     role: str
     sessionId: NotRequired[str]
+    jti: NotRequired[str]
+    isActive: NotRequired[bool]
+    isBlocked: NotRequired[bool]
     iat: NotRequired[int]
     exp: NotRequired[int]

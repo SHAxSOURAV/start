@@ -9,6 +9,7 @@ from src.app.module.auth.session_model import Session
 from src.app.module.auth.session_utils import hash_token, parse_user_agent
 from src.app.module.user.user_model import User
 from src.config import config
+from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.types.auth_types import AuthUserPayload
 from src.util.email_helpers import EmailHelpers
@@ -198,6 +199,7 @@ class SessionService:
                     {"authId": auth.id},
                     {"$set": {"isValid": False, "updatedAt": now}},
                 )
+                await RedisService.ban_user(auth.id, 900)
                 raise ApiError(
                     status.UNAUTHORIZED,
                     "Security alert: Stolen or reused refresh token detected. All sessions have been logged out.",
@@ -322,3 +324,4 @@ class SessionService:
             {"authId": _oid(auth_id)},
             {"$set": {"isValid": False, "updatedAt": now}},
         )
+        await RedisService.ban_user(auth_id, 900)

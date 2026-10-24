@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -24,6 +25,7 @@ def parse_expiry(expire_time: str | int) -> int:
 def create_token(payload: dict[str, Any], secret: str, expire_time: str | int) -> str:
     claims = {
         **payload,
+        "jti": payload.get("jti") or str(uuid.uuid4()),
         "exp": datetime.now(UTC) + timedelta(seconds=parse_expiry(expire_time)),
         "iat": datetime.now(UTC),
     }
@@ -35,6 +37,7 @@ def create_reset_token(
 ) -> str:
     claims = {
         **payload,
+        "jti": payload.get("jti") or str(uuid.uuid4()),
         "exp": datetime.now(UTC) + timedelta(seconds=parse_expiry(expire_time)),
         "iat": datetime.now(UTC),
     }

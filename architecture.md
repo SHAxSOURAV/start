@@ -25,7 +25,7 @@ To prevent dependency bloat, version drift, and security vulnerabilities, **only
 
 | Category | Technology / Library | Version Constraint | Approved Purpose |
 |---|---|---|---|
-| **Runtime** | Python | `3.15+` (with `3.13` compat) | Core execution engine |
+| **Runtime** | Python | `3.13` (Production Stable) | Core execution engine |
 | **Package Manager** | Astral `uv` | Latest | High-speed virtual environments & locking (`uv.lock`) |
 | **Web Framework** | FastAPI | `>=0.129.0` | Asynchronous REST routing, OpenAPI generation |
 | **ASGI Server** | Uvicorn (standard) | `>=0.54.0` | High-performance ASGI HTTP/WebSocket server |
@@ -37,6 +37,7 @@ To prevent dependency bloat, version drift, and security vulnerabilities, **only
 | **Security & Auth** | PyJWT, bcrypt, cryptography | `pyjwt>=2.15.0`, `bcrypt>=5.0.0` | JWT issuance/verification, salt-based hashing |
 | **HTTP Client** | HTTPX | `httpx>=0.28.0` | Non-blocking outbound HTTP API requests |
 | **Payment Gateway** | Stripe | `stripe>=16.0.0` | Payment intents, billing, and webhooks |
+| **In-Memory Cache & Revocation** | Redis (asyncio) | `redis>=5.2.0` | Sub-millisecond JWT blacklist, instant bans & distributed rate limiting |
 | **Code Quality** | Ruff & Mypy | `ruff>=0.16.0`, `mypy>=2.4.0` | Strict linting, formatting, and static typing |
 | **Testing** | pytest, pytest-asyncio, httpx | Standard Dev | Asynchronous unit and integration test suites |
 

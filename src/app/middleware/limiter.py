@@ -4,13 +4,13 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Request
 
+from src.connection.connect_redis import get_redis_client
 from src.error.api_error import ApiError
 from src.util.http_status import status
 from src.util.request_body import get_body
 
-# Fixed-window counters, in process memory -- the same storage model
-# express-rate-limit uses by default.
-_windows: dict[tuple[int, str], tuple[float, int]] = {}
+# Fixed-window counters, in process memory as a fallback when Redis is unreachable
+_windows: dict[tuple[str, str], tuple[float, int]] = {}
 
 
 class RateLimitError(ApiError):
@@ -42,8 +42,9 @@ def create_limiter(
     limit: int = 10,
     key_func: Callable[[Request], Awaitable[str | None] | str | None] | None = None,
     message: str | None = None,
+    name: str | None = None,
 ) -> Callable[[Request], Awaitable[None]]:
-    limiter_id = id(object())
+    limiter_id = name or f"limiter_{id(object())}"
 
     async def dependency(request: Request) -> None:
         key_identifier: str | None = None
@@ -57,9 +58,30 @@ def create_limiter(
         if not key_identifier:
             key_identifier = _get_client_ip(request)
 
+        window_seconds = max(1, int(window_ms / 1000))
+
+        # 1. Distributed Atomic Redis Rate Limiting (Multi-worker / Multi-container)
+        client = get_redis_client()
+        if client is not None:
+            try:
+                redis_key = f"ratelimit:{limiter_id}:{key_identifier}"
+                current_count = await client.incr(redis_key)
+                if current_count == 1:
+                    await client.expire(redis_key, window_seconds)
+                if current_count > limit:
+                    ttl = await client.ttl(redis_key)
+                    reset_time = max(ttl, 0)
+                    raise RateLimitError(reset_time, limit, window_ms, message=message)
+                return
+            except RateLimitError:
+                raise
+            except Exception:
+                # Graceful degradation to in-memory counter on any Redis error
+                pass
+
+        # 2. In-memory fallback
         key = (limiter_id, key_identifier)
         now = time.time()
-        window_seconds = window_ms / 1000
 
         started_at, count = _windows.get(key, (now, 0))
         if now - started_at >= window_seconds:
@@ -89,6 +111,7 @@ async def _extract_email_key(request: Request) -> str | None:
 def create_email_cooldown_limiter(
     cooldown_seconds: float = 5.0,
     message: str | None = None,
+    name: str | None = None,
 ) -> Callable[[Request], Awaitable[None]]:
     """Enforces a strict minimum cooldown between requests for the same email address."""
     sec = int(cooldown_seconds)
@@ -101,39 +124,52 @@ def create_email_cooldown_limiter(
         limit=1,
         key_func=_extract_email_key,
         message=msg,
+        name=name or f"email_cooldown_{sec}s",
     )
 
 
 # --- Pre-configured guards for Auth endpoints ---
-limiter = create_limiter()
+limiter = create_limiter(name="global_api")
 login_limiter = create_limiter(
     window_ms=15 * 60 * 1000,
     limit=10,
     message="Too many sign-in attempts from this IP address. Please try again after 15 minutes.",
+    name="auth_login_ip",
 )
 login_email_cooldown_limiter = create_email_cooldown_limiter(
     cooldown_seconds=3.0,
     message="Too many rapid attempts for this account. Please wait 3 seconds before trying again.",
+    name="auth_login_email_cooldown",
 )
-otp_send_limiter = create_limiter(window_ms=15 * 60 * 1000, limit=3)
-otp_verify_limiter = create_limiter(window_ms=15 * 60 * 1000, limit=5)
-otp_email_cooldown_limiter = create_email_cooldown_limiter(cooldown_seconds=5.0)
+otp_send_limiter = create_limiter(
+    window_ms=15 * 60 * 1000, limit=3, name="auth_otp_send"
+)
+otp_verify_limiter = create_limiter(
+    window_ms=15 * 60 * 1000, limit=5, name="auth_otp_verify"
+)
+otp_email_cooldown_limiter = create_email_cooldown_limiter(
+    cooldown_seconds=5.0, name="auth_otp_cooldown"
+)
 email_resend_cooldown_limiter = create_email_cooldown_limiter(
     cooldown_seconds=30.0,
     message="Please wait 30 seconds before requesting another code.",
+    name="auth_email_resend_cooldown",
 )
 signup_limiter = create_limiter(
     window_ms=15 * 60 * 1000,
     limit=5,
     message="Too many sign-up attempts. Please try again later.",
+    name="auth_signup",
 )
 change_password_limiter = create_limiter(
     window_ms=15 * 60 * 1000,
     limit=5,
     message="Too many password change attempts. Please try again later.",
+    name="auth_change_password",
 )
 delete_me_limiter = create_limiter(
     window_ms=15 * 60 * 1000,
     limit=3,
     message="Too many deletion attempts. Please try again later.",
+    name="auth_delete_me",
 )

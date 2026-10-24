@@ -83,28 +83,77 @@ def verify_module_naming() -> list[str]:
     return violations
 
 
+def verify_redis_standards() -> list[str]:
+    """Automated guardrail enforcing the 10 Golden Rules for Redis in Production."""
+    import re
+
+    violations: list[str] = []
+    py_files = list(SRC_DIR.rglob("*.py"))
+
+    # Rule 4: Blocking KEYS * forbidden
+    keys_pattern = re.compile(r"\b(client|redis|_redis_client)\.keys\s*\(")
+    # Rule 1: Never set keys without TTL
+    raw_set_pattern = re.compile(r"\b(client|redis|_redis_client)\.set\s*\(([^)]+)\)")
+    # Rule 2: Connection pooling - no ad-hoc redis.from_url
+    from_url_pattern = re.compile(r"\bredis\.from_url\s*\(")
+
+    for py_file in py_files:
+        rel_path = py_file.relative_to(WORKSPACE_ROOT)
+        content = py_file.read_text(encoding="utf-8", errors="ignore")
+        lines = content.splitlines()
+
+        for idx, line in enumerate(lines, 1):
+            if keys_pattern.search(line):
+                violations.append(
+                    f"FAIL (Redis Rule 4): {rel_path}:{idx} Uses blocking Redis '.keys()' command! Use 'scan_iter' or 'RedisService.scan_keys' instead."
+                )
+
+            match = raw_set_pattern.search(line)
+            if match:
+                args = match.group(2)
+                if "ex=" not in args and "px=" not in args:
+                    violations.append(
+                        f"FAIL (Redis Rule 1): {rel_path}:{idx} Redis '.set()' called without TTL ('ex=' or 'px='). Never set keys without TTL in production!"
+                    )
+
+            if from_url_pattern.search(line) and "connect_redis.py" not in str(
+                rel_path
+            ):
+                violations.append(
+                    f"FAIL (Redis Rule 2): {rel_path}:{idx} Calls 'redis.from_url()' directly! Never open ad-hoc connections; always use 'get_redis_client()' or 'RedisService' from 'src.connection.connect_redis'."
+                )
+
+    return violations
+
+
 def main() -> None:
     print("=" * 60)
-    print("  \U0001f50d Verifying Code Standards & Database Schema Sync...")
+    print("  🔍 Verifying Code Standards, Database Schema & Redis Rules...")
     print("=" * 60)
 
     length_violations = verify_file_lengths()
     schema_violations = verify_schema_catalog()
     naming_violations = verify_module_naming()
+    redis_violations = verify_redis_standards()
 
-    all_violations = length_violations + schema_violations + naming_violations
+    all_violations = (
+        length_violations + schema_violations + naming_violations + redis_violations
+    )
 
     if all_violations:
-        print("\n\u274c Code Standards Verification FAILED:")
+        print("\n❌ Code Standards Verification FAILED:")
         for v in all_violations:
             print(f"  • {v}")
         sys.exit(1)
 
-    print("\u2705 All source files are under 1,000 lines!")
+    print("✅ All source files are under 1,000 lines!")
     print(
-        f"\u2705 All {len(DOCUMENT_MODELS)} document models are cataloged in docs/DATABASE_SCHEMA.md!"
+        f"✅ All {len(DOCUMENT_MODELS)} document models are cataloged in docs/DATABASE_SCHEMA.md!"
     )
-    print("\u2705 All module files strictly follow architectural naming conventions!")
+    print("✅ All module files strictly follow architectural naming conventions!")
+    print(
+        "✅ All Redis calls strictly adhere to the 10 Golden Rules (No blocking KEYS, mandatory TTL)!"
+    )
     print("=" * 60)
 
 

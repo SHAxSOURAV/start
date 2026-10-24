@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import re
 from typing import Any
@@ -147,6 +149,6 @@ class QueryBuilder:
 def _to_int(value: Any, fallback: int) -> int:
     try:
         parsed = int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return fallback
     return parsed or fallback

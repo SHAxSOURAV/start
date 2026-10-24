@@ -264,3 +264,26 @@ erDiagram
 | `faqs` | `FAQ` | Frequently asked questions |
 | `aboutus` | `AboutUs` | About Us information |
 | `contactus` | `ContactUs` | Support contact details |
+
+---
+
+## 3. In-Memory Redis Key Catalog & Namespace Contracts
+
+The application utilizes **Redis (asyncio)** as a sub-millisecond in-memory cache, distributed rate limiter, and JWT token revocation layer. 
+
+### 3.1 Namespace Specifications & TTL Contracts
+
+| Key Pattern / Namespace | Data Type | Default TTL | Eviction Policy | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `auth:blacklist:jti:{jti}` | `string` | Remaining token lifespan (`exp - now`) | `volatile-ttl` | Instant revocation of logged-out JWT tokens. |
+| `auth:ban:user:{auth_id}` | `string` | 900s (15 min) | `volatile-ttl` | Instant ban/block of all active access tokens upon admin block, password change, or token theft. |
+| `ratelimit:{name}:{identifier}` | `integer` | Window duration (e.g. 900s) | `volatile-ttl` | Distributed atomic rate limiting across all Uvicorn workers and containers. |
+| `lock:{lock_name}` | `string` | 10s | `volatile-ttl` | Distributed mutex lock (SETNX) preventing Cache Stampedes / Thundering Herd. |
+| `cache:{cache_key}` | `string (JSON)` | Jittered Base TTL (±10%) | `volatile-ttl` | High-performance cached query payloads with Cache Avalanche and Penetration protection. |
+
+### 3.2 Production Redis Server Configuration
+- **Memory Limit**: `maxmemory 256mb`
+- **Eviction Strategy**: `volatile-ttl` (Safeguards persistent data by only evicting keys with an explicit TTL that are closest to expiration)
+- **Data Persistence**: Hybrid RDB (snapshots every 300s/10 changes) + AOF (`appendfsync everysec`)
+- **Non-blocking Operations**: Background memory reclamation (`lazyfree-lazy-eviction`, `lazyfree-lazy-expire`, `lazyfree-lazy-server-del`) and non-blocking `UNLINK` / `SCAN`.
+

@@ -4,6 +4,7 @@ from fastapi import Request
 
 from src.app.module.auth.auth_model import AUTH_PUBLIC_PROJECTION, Auth
 from src.app.module.user.user_model import User
+from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.types.auth_types import AuthUserPayload
 from src.util.base_document import utcnow
@@ -102,6 +103,7 @@ async def delete_my_account(payload: dict[str, Any]) -> None:
 
     await Auth.get_pymongo_collection().delete_one({"_id": auth["_id"]})
     await User.get_pymongo_collection().delete_one({"_id": user["_id"]})
+    await RedisService.ban_user(auth["_id"], 900)
 
 
 def _oid(value: Any) -> Any:

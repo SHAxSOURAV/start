@@ -7,6 +7,7 @@ import uvicorn
 
 from src.config import config
 from src.connection.connect_db import connect_db, disconnect_db
+from src.connection.connect_redis import connect_redis, disconnect_redis
 from src.connection.socket import main_server, sio
 from src.jobs import start_jobs, stop_jobs
 from src.util.logger import error_logger, logger
@@ -34,6 +35,7 @@ async def shutdown(exit_code: int, reason: str) -> None:
         await sio.shutdown()
         if _server is not None:
             _server.should_exit = True
+        await disconnect_redis()
         await disconnect_db()
         logger.info("Shutdown complete")
     except Exception as error:
@@ -78,6 +80,8 @@ async def main() -> None:
         await connect_db()
         logger.info("DB Connected Successfully")
 
+        await connect_redis()
+
         server_config = uvicorn.Config(
             main_server,
             host=config.base_url,
@@ -97,6 +101,7 @@ async def main() -> None:
         sys.exit(1)
     finally:
         stop_jobs()
+        await disconnect_redis()
         await disconnect_db()
 
 

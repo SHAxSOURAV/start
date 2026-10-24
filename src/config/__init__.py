@@ -25,6 +25,7 @@ class EnvSchema(BaseSettings):
 
     MONGO_URL: str = Field(min_length=1)
     DB_NAME: str | None = None
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     BCRYPT_SALT_ROUNDS: int = 10
     JWT_SECRET: str = Field(min_length=32)
@@ -134,6 +135,11 @@ class OAuthConfig:
 
 
 @dataclass(frozen=True)
+class RedisConfig:
+    url: str
+
+
+@dataclass(frozen=True)
 class Config:
     env: str
     port: int
@@ -143,6 +149,7 @@ class Config:
     bcrypt_salt_rounds: int
     auth_level: AuthLevel
     jwt: JwtConfig
+    redis: RedisConfig
     smtp: SmtpConfig
     cloudinary: CloudinaryConfig
     stripe: StripeConfig
@@ -167,6 +174,7 @@ config = Config(
         expires_in=env.JWT_EXPIRES_IN,
         refresh_expires_in=env.JWT_REFRESH_EXPIRES_IN,
     ),
+    redis=RedisConfig(url=env.REDIS_URL),
     smtp=SmtpConfig(
         smtp_host=env.SMTP_HOST,
         smtp_port=env.SMTP_PORT,

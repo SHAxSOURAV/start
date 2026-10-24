@@ -2,8 +2,8 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Request
 
-from src.app.module.auth.auth_model import Auth
 from src.config import config
+from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.util.http_status import status
 from src.util.jwt_helpers import jwt_helpers
@@ -27,32 +27,44 @@ def auth(
             raise ApiError(status.UNAUTHORIZED, "Invalid token format")
         token = parts[1].strip()
 
-        verify_user = jwt_helpers.verify_token(token, config.jwt.secret)
+        # Step 1: Zero-IO verification in CPU memory (< 0.1 ms)
+        try:
+            verify_user = jwt_helpers.verify_token(token, config.jwt.secret)
+        except Exception:
+            raise ApiError(status.UNAUTHORIZED, "Invalid or expired token") from None
+
         request.state.user = verify_user
 
-        is_exist = await Auth.get(verify_user["authId"])
-        if not is_exist:
-            raise ApiError(status.UNAUTHORIZED, "You are not authorized")
-        if is_exist.isBlocked:
-            raise ApiError(status.FORBIDDEN, "You are blocked. Contact support")
-        if not is_exist.isActive:
-            raise ApiError(status.FORBIDDEN, "Account is not activated")
-
-        # Invalidate access tokens issued before password was changed
-        if is_exist.passwordChangedAt:
-            token_iat = verify_user.get("iat")
-            if token_iat is not None and token_iat < int(
-                is_exist.passwordChangedAt.timestamp()
-            ):
-                raise ApiError(
-                    status.UNAUTHORIZED,
-                    "Password was recently changed. Please log in again.",
-                )
-
-        if roles and verify_user["role"] not in roles:
+        # Step 2: Role check from JWT payload claims (Zero-IO)
+        if roles and verify_user.get("role") not in roles:
             raise ApiError(
                 status.FORBIDDEN,
                 "Access Forbidden: You do not have permission to perform this action",
             )
+
+        # Step 3: Sub-millisecond revocation & instant-ban check via Redis (~ 0.5 ms)
+        auth_id = verify_user.get("authId")
+        if not auth_id:
+            raise ApiError(status.UNAUTHORIZED, "Invalid token payload")
+
+        is_token_revoked, is_user_banned = await RedisService.is_revoked(
+            verify_user.get("jti"), auth_id
+        )
+        if is_token_revoked:
+            raise ApiError(
+                status.UNAUTHORIZED,
+                "Session has been logged out or revoked. Please sign in again.",
+            )
+        if is_user_banned:
+            raise ApiError(
+                status.FORBIDDEN,
+                "Access revoked or password changed. Please sign in again.",
+            )
+
+        # Step 4: Validate embedded status flags from rich JWT payload
+        if verify_user.get("isBlocked"):
+            raise ApiError(status.FORBIDDEN, "You are blocked. Contact support")
+        if verify_user.get("isActive") is False:
+            raise ApiError(status.FORBIDDEN, "Account is not activated")
 
     return dependency

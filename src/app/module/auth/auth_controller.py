@@ -1,8 +1,11 @@
+import time
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.app.module.auth.auth_service import AuthService
 from src.config import config
+from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.util.catch_async import catch_async
 from src.util.http_status import status
@@ -241,6 +244,12 @@ async def logout(request: Request) -> JSONResponse:
     body = await get_body(request)
     token = request.cookies.get("refreshToken") or body.get("refreshToken")
     session_id = user.get("sessionId") if user else None
+
+    # Blacklist current access token in Redis for its remaining lifetime
+    if user and user.get("jti"):
+        exp = user.get("exp")
+        remaining = (exp - int(time.time())) if exp else 900
+        await RedisService.blacklist_token(user["jti"], max(1, remaining))
 
     await AuthService.logout_current_session(token, session_id=session_id)
     response = send_response(

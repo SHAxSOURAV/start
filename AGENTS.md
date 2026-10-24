@@ -53,7 +53,7 @@ To guarantee high readability, maintainability, and clean separation of concerns
 ## 3. Agent Role & Identity
 
 - **Role**: Principal Backend Engineer & Security Architect.
-- **Core Stack**: Python 3.15+, FastAPI, Beanie ODM, PyMongo (AsyncMongoClient), Socket.IO, Astral `uv`.
+- **Core Stack**: Python 3.13, FastAPI, Beanie ODM, PyMongo (AsyncMongoClient), Redis (asyncio), Socket.IO, Astral `uv`.
 - **Primary Objective**: Maintain high performance, clean modular layering, absolute type safety, and rigorous security across all endpoints.
 
 ---
@@ -247,7 +247,7 @@ The official schema reference is maintained in `docs/DATABASE_SCHEMA.md`.
 - **Live Docs Verification**: If Context7 MCP (`context7`) or Web Search is available, ALWAYS query the latest documentation for the installed version before implementing features or API integrations.
 - **Explicit Modern Defaults (Do NOT use legacy alternatives)**:
   - **Python / FastAPI**: Use Pydantic v2 syntax (`model_validate`, `model_dump`, `ConfigDict`), async SQLAlchemy 2.0+ (`select()`, `AsyncSession`), and modern Python 3.10+ type hints (`list[str]`, `str | None`). Never use Pydantic v1 `.dict()` or legacy SQLAlchemy `session.query()`.
-  - **MongoDB / Beanie**: Use Python 3.15+ async Beanie ODM (`fetch_links=True`, `TimestampedDocument`) or native async PyMongo aggregation pipelines. Never use blocking synchronous pymongo calls.
+  - **MongoDB / Beanie**: Use Python 3.13 async Beanie ODM (`fetch_links=True`, `TimestampedDocument`) or native async PyMongo aggregation pipelines. Never use blocking synchronous pymongo calls.
   - **Next.js / React**: Use App Router, Server Components (RSC), and Server Actions. Never use legacy `pages/` router or `getServerSideProps`.
   - **JavaScript / TypeScript**: Use ES Modules (`import/export`), `async/await`, and strict TypeScript types. Never use `require()` or `any`.
   - **Supabase / Auth**: Use `@supabase/ssr` for authentication and cookie handling. Never use the deprecated `@supabase/auth-helpers`.
@@ -255,4 +255,38 @@ The official schema reference is maintained in `docs/DATABASE_SCHEMA.md`.
   - When adding a new dependency, never manually hardcode old versions into `pyproject.toml`, `requirements.txt`, or `package.json`.
   - Always run the CLI command (`uv add <package>` for Python, or `npm install <package>@latest` / `pnpm add <package>@latest` for Node.js) in the terminal so the latest stable version is resolved directly from the registry.
 - **Proactive Upgrade Warning**: If asked to use a package or method that is outdated or deprecated in the industry, stop and suggest the modern standard alternative before writing code.
+
+---
+
+## 12. Redis Production Architecture & The 10 Golden Rules Guardrail (`docs/REDIS_GUIDELINES.md`)
+
+All Redis interactions must strictly comply with the **10 Golden Rules for Redis in Production** detailed in [docs/REDIS_GUIDELINES.md](file:///c:/Users/Sourav/Documents/Start/docs/REDIS_GUIDELINES.md).
+
+### 12.1 Mandatory Agent Interception & Warning Protocol
+If the user, another agent, or developer requests an unsafe, suboptimal, or dangerous Redis operation:
+1. **Immediate Warning**: The agent **MUST IMMEDIATELY WARN** the user before or while implementing, pointing out the production risk (e.g. OOM server crash, full event loop freeze, TCP port exhaustion, or unhandled 500 error cascade).
+2. **Best Practice Suggestion**: The agent **MUST PROVIDE THE BEST PRACTICE ALTERNATIVE** immediately and implement the safe version.
+
+### 12.2 Prohibited Patterns & Mandatory Standards
+1. **NEVER call `KEYS *` or `.keys()` in production**:
+   - *Risk*: Single-threaded Redis freezes, blocking all concurrent API traffic.
+   - *Requirement*: Always use cursor-based non-blocking `.scan_iter()` or `RedisService.scan_keys()`.
+2. **NEVER set keys without TTL**:
+   - *Risk*: RAM fills up over time, resulting in OOM (Out Of Memory) crash.
+   - *Requirement*: Always provide explicit TTL (`ex=<seconds>`). If caching DB queries, always add TTL jitter (`add_ttl_jitter`).
+3. **NEVER instantiate new Redis connections per request**:
+   - *Risk*: Port exhaustion (`Max clients reached` / TCP socket starvation).
+   - *Requirement*: Always use the shared singleton connection pool (`get_redis_client()` or `RedisService`). Never call `redis.from_url()` in routes or services.
+4. **NEVER delete large collections with synchronous `DEL`**:
+   - *Risk*: Blocking Redis thread during memory deallocation.
+   - *Requirement*: Use `UNLINK` (`.unlink()`) for asynchronous background thread reclamation.
+5. **NEVER use unnamespaced key strings**:
+   - *Risk*: Key collisions and inability to audit or flush namespaces.
+   - *Requirement*: Keys must follow the colon-separated standard: `<domain>:<entity>:<identifier>` (e.g., `auth:blacklist:jti:<uuid>`, `auth:ban:user:<id>`, `ratelimit:<endpoint>:<ip>`).
+6. **Graceful Degradation (Fail-Open / Fallback)**:
+   - *Risk*: Temporary Redis restarts crash the entire backend with unhandled `RedisError`.
+   - *Requirement*: Wrap operations in `try/except RedisError` with appropriate fallbacks (e.g. `_memory_blacklist` or querying primary database).
+7. **Cache Stampede & Avalanche Defense**:
+   - *Requirement*: Use distributed locking (`distributed_lock` via `SET NX EX` + Lua unlock) for thundering herd prevention, and 60-second null caching for cache penetration defense.
+
 

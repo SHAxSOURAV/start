@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from datetime import datetime
 
@@ -90,7 +92,7 @@ class Auth(TimestampedDocument):
             return bcrypt.checkpw(
                 given_password.encode("utf-8"), saved_password.encode("utf-8")
             )
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return False
 
 
