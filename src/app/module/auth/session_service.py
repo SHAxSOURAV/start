@@ -64,7 +64,9 @@ class SessionService:
     ) -> tuple[dict[str, str], Session]:
         """Creates a new tracked device session and generates the initial token pair."""
         now = _now()
-        refresh_lifespan = timedelta(seconds=parse_expiry(config.jwt.refresh_expires_in))
+        refresh_lifespan = timedelta(
+            seconds=parse_expiry(config.jwt.refresh_expires_in)
+        )
         expires_at = now + refresh_lifespan
         device_name = parse_user_agent(user_agent)
         auth_oid = _oid(auth_id)
@@ -150,7 +152,9 @@ class SessionService:
         # Invalidate if token was issued prior to password change
         if auth.passwordChangedAt:
             token_iat = verified.get("iat")
-            if token_iat is not None and token_iat < int(auth.passwordChangedAt.timestamp()):
+            if token_iat is not None and token_iat < int(
+                auth.passwordChangedAt.timestamp()
+            ):
                 raise ApiError(
                     status.UNAUTHORIZED,
                     "Password was recently changed. Please log in again.",
@@ -199,10 +203,15 @@ class SessionService:
                     "Security alert: Stolen or reused refresh token detected. All sessions have been logged out.",
                 )
 
-            raise ApiError(status.UNAUTHORIZED, "Session expired or invalid. Please sign in again.")
+            raise ApiError(
+                status.UNAUTHORIZED, "Session expired or invalid. Please sign in again."
+            )
 
         if not session.isValid:
-            raise ApiError(status.UNAUTHORIZED, "This session has been revoked. Please sign in again.")
+            raise ApiError(
+                status.UNAUTHORIZED,
+                "This session has been revoked. Please sign in again.",
+            )
 
         detail = await _account_detail(auth)
         if not detail:
@@ -219,7 +228,9 @@ class SessionService:
         new_tokens = _issue_tokens(token_payload, session_id=str(session.id))
         new_refresh_hash = hash_token(new_tokens["refreshToken"])
 
-        refresh_lifespan = timedelta(seconds=parse_expiry(config.jwt.refresh_expires_in))
+        refresh_lifespan = timedelta(
+            seconds=parse_expiry(config.jwt.refresh_expires_in)
+        )
 
         # Rotate session record
         session.previousTokenHash = current_token_hash
@@ -277,9 +288,7 @@ class SessionService:
             )
 
     @staticmethod
-    async def revoke_single_session(
-        auth_id: Any, target_session_id: str
-    ) -> None:
+    async def revoke_single_session(auth_id: Any, target_session_id: str) -> None:
         """Remotely revokes a specific device session."""
         now = _now()
         result = await Session.get_pymongo_collection().update_one(

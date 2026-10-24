@@ -184,7 +184,7 @@ async def update_message_as_seen(
 def _positive(value: Any, fallback: int) -> int:
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return fallback
     return parsed if parsed > 0 else fallback
 

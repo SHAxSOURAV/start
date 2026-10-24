@@ -62,7 +62,7 @@ class QueryBuilder:
         self._projection: dict[str, int] | None = None
         self._collation: Collation | None = None
 
-    def search(self, searchable_fields: list[str]) -> "QueryBuilder":
+    def search(self, searchable_fields: list[str]) -> QueryBuilder:
         search_term = self.query.get("searchTerm")
 
         if search_term and isinstance(search_term, str):
@@ -78,7 +78,7 @@ class QueryBuilder:
 
         return self
 
-    def filter(self) -> "QueryBuilder":
+    def filter(self) -> QueryBuilder:
         query_obj = dict(self.query)
 
         # Remove fields that are not actual database filters
@@ -95,13 +95,13 @@ class QueryBuilder:
 
         return self
 
-    def sort(self) -> "QueryBuilder":
+    def sort(self) -> QueryBuilder:
         # Comma-separated sort string, newest first when absent
         spec = " ".join((self.query.get("sort") or "").split(",")) or "-createdAt"
         self._sort = _parse_sort(spec)
         return self
 
-    def paginate(self) -> "QueryBuilder":
+    def paginate(self) -> QueryBuilder:
         page = _to_int(self.query.get("page"), 1)
         limit = _to_int(self.query.get("limit"), 10)
 
@@ -109,7 +109,7 @@ class QueryBuilder:
         self._limit = limit
         return self
 
-    def fields(self) -> "QueryBuilder":
+    def fields(self) -> QueryBuilder:
         # Comma-separated field list, excluding __v when absent
         spec = " ".join((self.query.get("fields") or "").split(",")) or "-__v"
         self._projection = _parse_projection(spec)
@@ -147,6 +147,6 @@ class QueryBuilder:
 def _to_int(value: Any, fallback: int) -> int:
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return fallback
     return parsed or fallback

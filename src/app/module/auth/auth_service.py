@@ -638,7 +638,9 @@ async def reset_password(payload: dict[str, Any]) -> Any:
 async def refresh_token(
     token: str | None, ip: str = "unknown", user_agent: str = ""
 ) -> dict[str, str]:
-    new_tokens, session = await SessionService.rotate_refresh_token(token, ip, user_agent)
+    new_tokens, session = await SessionService.rotate_refresh_token(
+        token, ip, user_agent
+    )
     return {
         **new_tokens,
         "sessionId": str(session.id),

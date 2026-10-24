@@ -79,7 +79,7 @@ class Auth(TimestampedDocument):
         self.password = hash_password(self.password)
 
     @staticmethod
-    async def is_auth_exist(email: str) -> "Auth | None":
+    async def is_auth_exist(email: str) -> Auth | None:
         return await Auth.find_one({"email": email})
 
     @staticmethod
@@ -90,7 +90,7 @@ class Auth(TimestampedDocument):
             return bcrypt.checkpw(
                 given_password.encode("utf-8"), saved_password.encode("utf-8")
             )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
 

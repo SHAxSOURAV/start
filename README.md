@@ -7,7 +7,7 @@ socket events.
 
 ## Requirements
 
-- Python 3.12+ (or Astral `uv`)
+- Python 3.15+ (or Astral `uv`)
 - MongoDB (local, Atlas, or the bundled `docker compose` service)
 
 ## Setup
