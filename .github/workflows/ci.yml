@@ -34,7 +34,7 @@ jobs:
         run: ruff format --check .
 
       - name: Type check
-        run: mypy src
+        run: mypy src tests
 
       - name: Import check
         env:
@@ -42,3 +42,13 @@ jobs:
           JWT_SECRET: ci-secret-value-that-is-long-enough-to-pass-validation
           JWT_REFRESH_SECRET: ci-refresh-secret-value-that-is-long-enough-too
         run: python -c "import src.connection.socket"
+
+      - name: Run standards & Redis guardrail verification
+        run: python scripts/verify_standards.py
+
+      - name: Run automated test suite
+        env:
+          MONGO_URL: mongodb://localhost:27017/templateDB
+          JWT_SECRET: ci-secret-value-that-is-long-enough-to-pass-validation
+          JWT_REFRESH_SECRET: ci-refresh-secret-value-that-is-long-enough-too
+        run: pytest
