@@ -418,19 +418,18 @@ async def _handle_social_login(
             set_fields["isActive"] = True
 
         # Pre-Hijacking Attack Defense:
-        # If the account exists but was unverified (e.g. an attacker initiated signup with
+        # If the account exists but was never activated (e.g. an attacker initiated signup with
         # victim's email), clear the attacker's unverified password, wipe pending OTPs,
         # and invalidate any active attacker sessions in Redis so the attacker loses access.
-        if not auth.isVerified:
+        if not auth.isActive:
             set_fields["password"] = ""
-            set_fields["isVerified"] = True
             set_fields["isActive"] = True
-            set_fields["verificationCode"] = None
-            set_fields["verificationCodeExpire"] = None
             set_fields["activationCode"] = None
             set_fields["activationCodeExpire"] = None
-            set_fields["verificationAttempts"] = 0
             set_fields["activationAttempts"] = 0
+            set_fields["verificationCode"] = None
+            set_fields["verificationCodeExpire"] = None
+            set_fields["verificationAttempts"] = 0
             await SessionService.revoke_all_user_sessions(auth.id)
             await RedisService.unban_user(auth.id)
         else:
@@ -771,17 +770,16 @@ async def delete_me(user_data: AuthUserPayload, payload: dict[str, Any]) -> None
     auth_id = user_data["authId"]
     password = payload.get("password")
 
-    if not password:
-        raise ApiError(status.BAD_REQUEST, "Password is required to delete account")
-
     auth = await Auth.get_pymongo_collection().find_one({"_id": _oid(auth_id)})
     if not auth or auth.get("isDeleted"):
         raise ApiError(status.NOT_FOUND, "Account does not exist")
 
-    if auth.get("password") and not await Auth.is_password_matched(
-        password, auth["password"]
-    ):
-        raise ApiError(status.BAD_REQUEST, "Password is incorrect")
+    # If the account has a password configured, require password confirmation
+    if auth.get("password"):
+        if not password:
+            raise ApiError(status.BAD_REQUEST, "Password is required to delete account")
+        if not await Auth.is_password_matched(password, auth["password"]):
+            raise ApiError(status.BAD_REQUEST, "Password is incorrect")
 
     now = _now()
     # 30-day soft delete: mark isDeleted=True, deletedAt=now, and deactivate account

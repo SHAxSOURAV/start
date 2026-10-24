@@ -33,7 +33,7 @@ async def create_admin(payload: dict[str, Any]) -> dict[str, Any]:
     validate_fields(payload, ["name", "email", "password"])
 
     name = payload["name"]
-    email = payload["email"]
+    email = payload["email"].strip().lower()
     password = payload["password"]
 
     existing = await Auth.find_one({"email": email})

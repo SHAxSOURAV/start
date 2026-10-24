@@ -190,12 +190,7 @@ class RefreshToken(BaseModel):
 
 
 class DeleteMeBody(BaseModel):
-    password: str
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        return check_non_empty(v, "Password is required to delete account")
+    password: str | None = None
 
 
 class DeleteMe(BaseModel):

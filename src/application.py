@@ -79,12 +79,28 @@ async def health() -> JSONResponse:
         except Exception:
             db_up = False
 
+    redis_up = False
+    try:
+        from src.connection.connect_redis import get_redis_client
+
+        redis_client = get_redis_client()
+        if redis_client is not None:
+            await redis_client.ping()
+            redis_up = True
+    except Exception:
+        redis_up = False
+
+    is_healthy = db_up
+
     return JSONResponse(
-        status_code=200 if db_up else 503,
+        status_code=200 if is_healthy else 503,
         content={
-            "status": "ok" if db_up else "degraded",
+            "status": (
+                "ok" if (db_up and redis_up) else ("degraded" if db_up else "down")
+            ),
             "uptime": time.time() - START_TIME,
             "db": "up" if db_up else "down",
+            "redis": "up" if redis_up else "down",
         },
     )
 
