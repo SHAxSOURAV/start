@@ -10,7 +10,11 @@ from src.app.module.manage.manage_routes import router as manage_routes
 from src.app.module.notification.notification_routes import (
     router as notification_routes,
 )
+from src.app.module.payment.payment_routes import router as payment_routes
 from src.app.module.review.review_routes import router as review_routes
+from src.app.module.subscription.subscription_routes import (
+    router as subscription_routes,
+)
 from src.app.module.user.user_routes import router as user_routes
 
 router = APIRouter(prefix="/api/v1")
@@ -21,6 +25,8 @@ module_routes: list[dict[str, Any]] = [
     {"path": "/admin", "route": admin_routes},
     {"path": "/manage", "route": manage_routes},
     {"path": "/notification", "route": notification_routes},
+    {"path": "/subscription", "route": subscription_routes},
+    {"path": "/payment", "route": payment_routes},
     {"path": "/feedback", "route": feedback_routes},
     {"path": "/review", "route": review_routes},
     {"path": "/chat", "route": chat_routes},
