@@ -81,6 +81,7 @@ async def _get_public_key(provider: str, url: str, kid: str | None) -> Any:
 async def verify_google_id_token(id_token: str) -> dict[str, Any]:
     """Cryptographically verifies a Google ID token against Google's public JWKS.
 
+    Enforces RS256 signature verification, expiry, issuer, audience, and email_verified claim.
     Returns the verified profile payload.
     """
     if not id_token:
@@ -110,7 +111,7 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
         },
     }
 
-    # Verify audience if configured
+    # Verify audience (Web, Android, iOS Client IDs)
     if config.oauth.google_client_id:
         expected_audiences = [
             aud.strip()
@@ -119,6 +120,11 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
         ]
         if expected_audiences:
             decode_kwargs["audience"] = expected_audiences
+    elif config.env == "production":
+        raise ApiError(
+            status.INTERNAL_SERVER_ERROR,
+            "Google OAuth client ID is not configured on the server",
+        )
 
     try:
         payload = jwt.decode(id_token, **decode_kwargs)
@@ -140,6 +146,15 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
     if iss not in ("https://accounts.google.com", "accounts.google.com"):
         raise ApiError(status.UNAUTHORIZED, f"Invalid Google token issuer: {iss}")
 
+    # Enforce email_verified claim (Strict Security Rule)
+    email_verified = payload.get("email_verified")
+    if email_verified is not True and email_verified != "true":
+        raise ApiError(status.UNAUTHORIZED, "Google account email is not verified")
+
+    sub = payload.get("sub")
+    if not sub:
+        raise ApiError(status.UNAUTHORIZED, "Google ID token missing 'sub' claim")
+
     email = payload.get("email")
     if not email:
         raise ApiError(
@@ -149,16 +164,18 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
     return {
         "email": email.strip().lower(),
         "name": payload.get("name") or email.split("@")[0],
-        "googleId": payload.get("sub"),
+        "googleId": sub,
         "picture": payload.get("picture"),
-        "emailVerified": payload.get("email_verified", True),
+        "emailVerified": True,
     }
 
 
 async def verify_apple_identity_token(identity_token: str) -> dict[str, Any]:
     """Cryptographically verifies an Apple Identity Token against Apple's public JWKS.
 
-    Returns the verified profile payload.
+    Handles Apple Gotchas:
+    1. Returns 'appleId' (sub claim) as the primary permanent identifier.
+    2. Gracefully handles returning users where 'email' is absent from subsequent tokens.
     """
     if not identity_token:
         raise ApiError(status.BAD_REQUEST, "Apple identity token is required")
@@ -188,7 +205,7 @@ async def verify_apple_identity_token(identity_token: str) -> dict[str, Any]:
         },
     }
 
-    # Verify audience (App Bundle ID / Services ID) if configured
+    # Verify audience (App Bundle ID / Services ID)
     if config.oauth.apple_client_id:
         expected_audiences = [
             aud.strip()
@@ -197,6 +214,11 @@ async def verify_apple_identity_token(identity_token: str) -> dict[str, Any]:
         ]
         if expected_audiences:
             decode_kwargs["audience"] = expected_audiences
+    elif config.env == "production":
+        raise ApiError(
+            status.INTERNAL_SERVER_ERROR,
+            "Apple OAuth client ID is not configured on the server",
+        )
 
     try:
         payload = jwt.decode(identity_token, **decode_kwargs)
@@ -215,15 +237,24 @@ async def verify_apple_identity_token(identity_token: str) -> dict[str, Any]:
             status.UNAUTHORIZED, f"Apple token verification failed: {err}"
         ) from err
 
-    email = payload.get("email")
-    if not email:
-        raise ApiError(
-            status.BAD_REQUEST,
-            "Apple identity token does not contain an email address. Ensure email scope was requested.",
-        )
+    sub = payload.get("sub")
+    if not sub:
+        raise ApiError(status.UNAUTHORIZED, "Apple identity token missing 'sub' claim")
+
+    raw_email = payload.get("email")
+    email = raw_email.strip().lower() if raw_email else None
+
+    # In Apple identity tokens, email_verified can be boolean or string
+    raw_verified = payload.get("email_verified")
+    is_verified = (
+        raw_verified is True
+        or raw_verified == "true"
+        or (email is not None and raw_verified is None)
+    )
 
     return {
-        "email": email.strip().lower(),
-        "appleId": payload.get("sub"),
-        "emailVerified": payload.get("email_verified", True),
+        "email": email,
+        "appleId": sub,
+        "emailVerified": is_verified,
+        "isPrivateEmail": payload.get("is_private_email") in (True, "true"),
     }

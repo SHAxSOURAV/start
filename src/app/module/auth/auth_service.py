@@ -14,6 +14,7 @@ from src.app.module.auth.oauth_service import (
 from src.app.module.auth.session_service import SessionService
 from src.app.module.user.user_model import User
 from src.config import config
+from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
 from src.types.auth_types import AuthUserPayload
 from src.util.code_generator import code_generator
@@ -382,13 +383,24 @@ async def _handle_social_login(
     ip: str = "unknown",
     user_agent: str = "",
 ) -> dict[str, Any]:
-    email = profile["email"].strip().lower()
-    name = profile.get("name") or email.split("@")[0]
+    raw_email = profile.get("email")
+    email = raw_email.strip().lower() if raw_email else None
+    name = profile.get("name")
     picture = profile.get("picture")
     google_id = profile.get("googleId")
     apple_id = profile.get("appleId")
 
-    auth = await Auth.find_one({"email": email})
+    # 1. Primary identification: look up by provider's permanent subject ID (sub) first
+    auth = None
+    if provider == "google" and google_id:
+        auth = await Auth.find_one({"googleId": google_id})
+    elif provider == "apple" and apple_id:
+        auth = await Auth.find_one({"appleId": apple_id})
+
+    # 2. Account linking: look up by verified email if not already found by provider ID
+    if not auth and email:
+        auth = await Auth.find_one({"email": email})
+
     was_soft_deleted = False
 
     if auth:
@@ -405,17 +417,35 @@ async def _handle_social_login(
             set_fields["deletedAt"] = None
             set_fields["isActive"] = True
 
-        # Social auth validates email ownership: activate if previously pending OTP
-        if not auth.isActive:
-            set_fields["isActive"] = True
+        # Pre-Hijacking Attack Defense:
+        # If the account exists but was unverified (e.g. an attacker initiated signup with
+        # victim's email), clear the attacker's unverified password, wipe pending OTPs,
+        # and invalidate any active attacker sessions in Redis so the attacker loses access.
         if not auth.isVerified:
+            set_fields["password"] = ""
             set_fields["isVerified"] = True
+            set_fields["isActive"] = True
+            set_fields["verificationCode"] = None
+            set_fields["verificationCodeExpire"] = None
+            set_fields["activationCode"] = None
+            set_fields["activationCodeExpire"] = None
+            set_fields["verificationAttempts"] = 0
+            set_fields["activationAttempts"] = 0
+            await SessionService.revoke_all_user_sessions(auth.id)
+            await RedisService.unban_user(auth.id)
+        else:
+            if not auth.isActive:
+                set_fields["isActive"] = True
 
         # Link provider IDs if not recorded
-        if provider == "google" and not auth.googleId:
+        if provider == "google" and not auth.googleId and google_id:
             set_fields["googleId"] = google_id
-        elif provider == "apple" and not auth.appleId:
+        elif provider == "apple" and not auth.appleId and apple_id:
             set_fields["appleId"] = apple_id
+
+        # Update name if previously absent or default
+        if name and (not auth.name or auth.name == auth.email.split("@")[0]):
+            set_fields["name"] = name
 
         await Auth.get_pymongo_collection().update_one(
             {"_id": auth.id},
@@ -440,15 +470,28 @@ async def _handle_social_login(
 
         detail = await _account_detail(auth)
         if not detail:
+            fallback_name = auth.name or (
+                name or (auth.email.split("@")[0] if auth.email else "User")
+            )
             user_doc = User(
-                authId=auth.id, name=auth.name, email=email, profile_image=picture
+                authId=auth.id,
+                name=fallback_name,
+                email=auth.email,
+                profile_image=picture,
             )
             await user_doc.insert()
             detail = await _account_detail(auth)
     else:
         # Brand new account registration via OAuth
+        if not email:
+            raise ApiError(
+                status.BAD_REQUEST,
+                "No existing account found for this Apple ID and no email address provided. Please authorize the app with email sharing enabled.",
+            )
+
+        resolved_name = name or email.split("@")[0]
         auth = Auth(
-            name=name,
+            name=resolved_name,
             email=email,
             password="",
             role=EnumUserRole.USER,
@@ -462,7 +505,7 @@ async def _handle_social_login(
 
         user_doc = User(
             authId=auth.id,
-            name=name,
+            name=resolved_name,
             email=email,
             profile_image=picture,
         )
@@ -475,7 +518,7 @@ async def _handle_social_login(
     token_payload = {
         "authId": str(auth.id),
         "userId": str(detail["_id"]),
-        "email": email,
+        "email": auth.email,
         "role": auth.role,
     }
     tokens, session = await SessionService.create_user_session(
