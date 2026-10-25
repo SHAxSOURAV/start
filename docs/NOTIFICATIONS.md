@@ -76,6 +76,9 @@ To ensure push notifications reach the specific user:
 | `STRIPE_PAYMENT_SUCCESS` | When Stripe Checkout Session or PaymentIntent completes | 📱 OneSignal Push<br>🔔 In-App Feed<br>⚡ Socket.IO | User (`external_id: user_id`) | **Title**: `Payment Successful 🎉`<br>**Message**: `Your payment of <amount> has been received successfully.` | `{"type": "payment", "status": "succeeded"}` |
 | `STRIPE_PAYMENT_FAILED` | When Stripe charge is declined or payment intent fails | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Payment Failed ⚠️`<br>**Message**: `Your payment could not be processed: <reason>` | `{"type": "payment", "status": "failed"}` |
 | `STRIPE_PAYMENT_REFUNDED` | When Stripe charge refund is completed | 📱 OneSignal Push<br>🔔 In-App Feed | User (`external_id: user_id`) | **Title**: `Refund Processed`<br>**Message**: `A refund has been credited back to your original payment method.` | `{"type": "payment", "status": "refunded"}` |
+| `AUTH_ACCOUNT_STATUS_CHANGE` | When an admin updates user status (Ban, Suspend, Unapprove, Reactivate) | ✉️ Transactional Email | Target User (`email`) | **Subject**: `Important Notice: Your Account Has Been <Action>`<br>**Content**: Administrative decision, reason, expiration date, and appeal instructions | N/A (Email) |
+| `FORCE_LOGOUT` | When an admin bans, suspends, or unapproves an active user | ⚡ Socket.IO | User (`room: userId / authId`) | **Event**: `force_logout`<br>**Payload**: `{"action": "BAN", "status": "BANNED", "reason": "...", "expiresAt": null}` | `{"action": "...", "status": "..."}` |
+
 
 ---
 

@@ -5,7 +5,7 @@ from datetime import datetime
 
 import bcrypt
 import pymongo
-from beanie import Insert, before_event
+from beanie import Insert, PydanticObjectId, before_event
 from pydantic import field_validator
 
 from src.config import config
@@ -24,11 +24,17 @@ class Auth(TimestampedDocument):
     email: str
     password: str = ""
     role: str
+    status: str | None = "ACTIVE"
     isVerified: bool | None = None
     isBlocked: bool | None = False
     isActive: bool | None = False
     isDeleted: bool | None = False
     deletedAt: datetime | None = None
+    bannedAt: datetime | None = None
+    bannedBy: PydanticObjectId | None = None
+    banReason: str | None = None
+    banExpiresAt: datetime | None = None
+    unapprovedAt: datetime | None = None
     googleId: str | None = None
     appleId: str | None = None
     verificationCode: str | None = None
@@ -45,6 +51,8 @@ class Auth(TimestampedDocument):
         name = "auths"
         indexes = [
             pymongo.IndexModel([("email", pymongo.ASCENDING)], unique=True),
+            pymongo.IndexModel([("status", pymongo.ASCENDING)]),
+            pymongo.IndexModel([("isBlocked", pymongo.ASCENDING)]),
             pymongo.IndexModel(
                 [("isDeleted", pymongo.ASCENDING), ("deletedAt", pymongo.ASCENDING)]
             ),

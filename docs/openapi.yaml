@@ -762,6 +762,143 @@ paths:
         "200":
           description: Paginated payment history
 
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: Retrieve paginated user list with filters
+      description: |
+        Retrieves user accounts with denormalized profiles using Application-Level Batch Population.
+        Supports filtering by status (BANNED, ACTIVE, SUSPENDED, UNAPPROVED), role, isBlocked, and case-insensitive searchTerm.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [ACTIVE, BANNED, SUSPENDED, UNAPPROVED, PENDING] }
+        - in: query
+          name: isBlocked
+          schema: { type: boolean }
+        - in: query
+          name: role
+          schema: { type: string, enum: [USER, DRIVER, ADMIN, SUPER_ADMIN] }
+        - in: query
+          name: searchTerm
+          schema: { type: string }
+          description: Search by name or email
+      responses:
+        "200":
+          description: Paginated user list with denormalized profiles and ban metadata
+
+  /api/v1/admin/users/banned:
+    get:
+      tags: [Admin]
+      summary: Retrieve paginated list of all banned users
+      description: Shortcut endpoint to retrieve all banned and blocked users sorted by bannedAt descending.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: searchTerm
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated list of banned users
+
+  /api/v1/admin/users/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Instantly ban, suspend, unapprove, or restore a user account
+      description: |
+        Industry-ready administrative account lifecycle control.
+        Enforces self-ban prevention, role hierarchy privilege guards, instant
+        JWT/session invalidation via Redis and Beanie, real-time WebSocket force-logout,
+        immutable audit logging, and transactional email notification.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          description: Target Auth _id or User profile _id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [BAN, UNBAN, SUSPEND, UNAPPROVE, ACTIVE]
+                  example: BAN
+                reason:
+                  type: string
+                  example: Violation of terms of service - spam activity
+                internal_note:
+                  type: string
+                  example: Reported by multiple users
+                duration_hours:
+                  type: integer
+                  minimum: 1
+                  maximum: 8760
+                  example: 72
+                revoke_sessions:
+                  type: boolean
+                  default: true
+                notify_user:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Status updated successfully or idempotent status confirmed
+        "400":
+          description: Self-action forbidden or invalid action
+        "403":
+          description: Privilege error (cannot modify equal or higher role privilege)
+        "404":
+          description: Target account not found
+
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Retrieve paginated administrative audit logs
+      description: Returns immutable history of admin actions including bans, suspensions, and unapprovals.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: action
+          schema: { type: string }
+        - in: query
+          name: targetAuthId
+          schema: { type: string }
+        - in: query
+          name: performedBy
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated audit logs
+
   /api/v1/health:
     get:
       tags: [System]

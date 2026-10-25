@@ -8,6 +8,11 @@ from src.app.module.admin.admin_stats_service import (
     get_charts_statistics,
     get_overview_statistics,
 )
+from src.app.module.admin.admin_user_service import (
+    get_all_users,
+    get_audit_logs,
+    manage_user_status,
+)
 from src.app.module.auth.auth_model import AUTH_PUBLIC_PROJECTION, Auth
 from src.connection.connect_redis import RedisService
 from src.error.api_error import ApiError
@@ -166,3 +171,8 @@ class AdminService:
     get_overview_statistics = staticmethod(get_overview_statistics)
     get_charts_statistics = staticmethod(get_charts_statistics)
     get_breakdowns_statistics = staticmethod(get_breakdowns_statistics)
+    manage_user_status = staticmethod(manage_user_status)
+    get_audit_logs = staticmethod(get_audit_logs)
+    get_all_users = staticmethod(get_all_users)
+
+

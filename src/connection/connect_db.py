@@ -5,6 +5,7 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 
 from src.app.module.admin.admin_model import Admin
+from src.app.module.admin.audit_log_model import AuditLog
 from src.app.module.auth.auth_model import Auth
 from src.app.module.auth.session_model import Session
 from src.app.module.chat.chat_model import Chat
@@ -30,6 +31,7 @@ DOCUMENT_MODELS = [
     Session,
     User,
     Admin,
+    AuditLog,
     TermsConditions,
     PrivacyPolicy,
     FAQ,

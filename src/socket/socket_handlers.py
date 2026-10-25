@@ -22,12 +22,15 @@ def register_socket_handlers() -> None:
 
         # Set by socket_auth -- never trust client-supplied ids
         user_id = user["userId"]
+        auth_id = user.get("authId")
 
         validated = await SocketController.validate_user(sid, {"userId": user_id})
         if not validated:
             return
 
         await sio.enter_room(sid, user_id)
+        if auth_id:
+            await sio.enter_room(sid, str(auth_id))
         if user.get("role") in [EnumUserRole.ADMIN, EnumUserRole.SUPER_ADMIN]:
             await sio.enter_room(sid, "admin")
 

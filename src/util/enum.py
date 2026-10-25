@@ -43,6 +43,7 @@ class EnumSocketEvent:
     START_CHAT = "start_chat"
     SEND_MESSAGE = "send_message"
     NOTIFICATION = "notification"
+    FORCE_LOGOUT = "force_logout"
 
 
 class EnumNotificationType:
@@ -63,3 +64,20 @@ class EnumLoginProvider:
 class EnumUserAccountStatus:
     VERIFIED = "verified"
     UNVERIFIED = "unverified"
+
+
+class EnumAccountStatus:
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    UNAPPROVED = "UNAPPROVED"
+    SUSPENDED = "SUSPENDED"
+    BANNED = "BANNED"
+
+
+class EnumAuditAction:
+    USER_BAN = "USER_BAN"
+    USER_UNBAN = "USER_UNBAN"
+    USER_SUSPEND = "USER_SUSPEND"
+    USER_UNAPPROVE = "USER_UNAPPROVE"
+    USER_ACTIVATE = "USER_ACTIVATE"
+

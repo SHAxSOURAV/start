@@ -46,11 +46,17 @@ erDiagram
 | `email` | `string` | `str` | Yes | - | Validated email regex, lowercase |
 | `password` | `string` | `str` | Yes | - | Bcrypt hashed password (empty for pure OAuth accounts) |
 | `role` | `string` | `str` | Yes | - | `USER`, `ADMIN`, `SUPER_ADMIN`, `DRIVER` |
+| `status` | `string` | `str \| None` | No | `"ACTIVE"` | Account lifecycle status (`ACTIVE`, `BANNED`, `SUSPENDED`, `UNAPPROVED`, `PENDING`) |
 | `isVerified` | `bool` | `bool \| None` | No | `None` | Email verification flag |
 | `isBlocked` | `bool` | `bool \| None` | No | `False` | Administrative account ban flag |
 | `isActive` | `bool` | `bool \| None` | No | `False` | Account active state |
 | `isDeleted` | `bool` | `bool \| None` | No | `False` | Soft-delete flag (30-day retention) |
 | `deletedAt` | `Date` | `datetime \| None`| No | `None` | Soft-deletion initiation timestamp |
+| `bannedAt` | `Date` | `datetime \| None` | No | `None` | Administrative ban timestamp |
+| `bannedBy` | `ObjectId` | `PydanticObjectId \| None` | No | `None` | Admin Auth ID who performed ban/suspension |
+| `banReason` | `string` | `str \| None` | No | `None` | Administrative reason for status restriction |
+| `banExpiresAt` | `Date` | `datetime \| None` | No | `None` | Expiration timestamp for temporary account suspension |
+| `unapprovedAt` | `Date` | `datetime \| None` | No | `None` | Timestamp when user was marked unapproved |
 | `googleId` | `string` | `str \| None` | No | `None` | Google OAuth subject identifier (`sub`) |
 | `appleId` | `string` | `str \| None` | No | `None` | Apple Sign-In subject identifier (`sub`) |
 | `verificationCode` | `string` | `str \| None` | No | `None` | Password reset OTP hash |
@@ -67,9 +73,12 @@ erDiagram
 | Index Keys | Type | Options | Purpose |
 | :--- | :--- | :--- | :--- |
 | `[("email", 1)]` | Single field | `unique=True` | Unique login and registration lookups |
+| `[("status", 1)]` | Single field | Default | Superfast lookups for active, banned, and suspended accounts |
+| `[("isBlocked", 1)]` | Single field | Default | Fast index for active restriction queries |
 | `[("isDeleted", 1), ("deletedAt", 1)]` | Compound | Default | Superfast IXSCAN for soft-delete queries & retention cleanup |
 | `[("googleId", 1)]` | Single field | `sparse=True` | OAuth Google Sign-In lookup |
 | `[("appleId", 1)]` | Single field | `sparse=True` | OAuth Apple Sign-In lookup |
+
 
 ---
 
@@ -156,7 +165,39 @@ erDiagram
 
 ---
 
-### 2.5 `chats` (Chat Model)
+### 2.5 `audit_logs` (AuditLog Model)
+- **Source**: [src/app/module/admin/audit_log_model.py](file:///c:/Users/mdsad/Documents/start/src/app/module/admin/audit_log_model.py)
+- **Purpose**: Immutable audit trail documenting administrative actions (Instant Ban, Suspension, Unapprove, Unban, Reactivation), reasons, caller IP, and target user metadata.
+
+#### Fields
+| Field | BSON Type | Python Type | Required | Default | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `action` | `string` | `str` | Yes | - | Event type (`USER_BAN`, `USER_SUSPEND`, `USER_UNAPPROVE`, `USER_UNBAN`, `USER_ACTIVE`) |
+| `performedBy` | `ObjectId` | `PydanticObjectId` | Yes | - | Admin Auth ID who performed the action |
+| `performedByRole`| `string` | `str` | Yes | - | Role of admin (`ADMIN`, `SUPER_ADMIN`) |
+| `targetAuthId` | `ObjectId` | `PydanticObjectId` | Yes | - | Target account Auth ID |
+| `targetUserId` | `ObjectId` | `PydanticObjectId \| None` | No | `None` | Target user profile ID |
+| `targetEmail` | `string` | `str` | Yes | - | Target account email address |
+| `targetRole` | `string` | `str` | Yes | - | Target account role at time of action |
+| `reason` | `string` | `str \| None` | No | `None` | User-facing rationale |
+| `internalNote` | `string` | `str \| None` | No | `None` | Confidential staff note for audit review |
+| `oldStatus` | `string` | `str` | Yes | - | Previous account status |
+| `newStatus` | `string` | `str` | Yes | - | New updated account status |
+| `ip` | `string` | `str \| None` | No | `None` | Client IP address of the acting admin |
+| `userAgent` | `string` | `str \| None` | No | `None` | User-Agent string of the acting admin |
+| `metadata` | `object` | `dict[str, Any] \| None` | No | `None` | Structured context (suspension duration, expiration date) |
+
+#### Indexes
+| Index Keys | Type | Purpose |
+| :--- | :--- | :--- |
+| `[("performedBy", 1)]` | Single field | Audit trail lookup by acting administrator |
+| `[("targetAuthId", 1)]` | Single field | Audit history retrieval for a specific account |
+| `[("action", 1)]` | Single field | Filter logs by action type |
+| `[("createdAt", -1)]` | Single field | Reverse-chronological timeline retrieval |
+
+---
+
+### 2.6 `chats` (Chat Model)
 - **Source**: [src/app/module/chat/chat_model.py](file:///c:/Users/Sourav/Documents/Start/src/app/module/chat/chat_model.py)
 - **Purpose**: Chat room metadata between two or more participants.
 
