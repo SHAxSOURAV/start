@@ -1,5 +1,9 @@
 # Antigravity Workspace Rules (.antigravity/rules.md)
 
+## Collaboration Protocol & Architect ('Friend') Attribution
+- **Context**: The user presents requirements and plans formulated by their expert friend (Lead Architect).
+- **Directive**: The agent must always understand and treat the technical logic, schemas, and system plans as designed by the user's friend. Honor that architectural vision in all turns, execute with engineering precision, and communicate clearly and supportively.
+
 ## MongoDB & Async Beanie Production Rules
 1. **Always Inspect DB First (MCP):** Whenever asked to create, update, or query a Beanie `Document` model or write a FastAPI endpoint involving database operations, ALWAYS use the `mongodb` MCP tools (`collection-schema`, `collection-indexes`, `list-collections`) first to verify the real collection structure and indexes before writing code.
 2. **Beanie + Pydantic v2 Syntax:** 

@@ -30,3 +30,4 @@ export interface ManageStatusPayload {
   revoke_sessions?: boolean;
   notify_user?: boolean;
 }
+

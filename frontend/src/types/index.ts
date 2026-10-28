@@ -35,3 +35,4 @@ export interface ChatMessage {
   mediaUrl?: string;
   createdAt: string;
 }
+
