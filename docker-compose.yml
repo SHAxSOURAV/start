@@ -1,9 +1,9 @@
 services:
   api:
-    build: .
+    build: ./backend
     ports:
       - "8001:8001"
-    env_file: .env
+    env_file: ./backend/.env
     environment:
       # Inside the compose network the DB host is the service name
       MONGO_URL: mongodb://mongo:27017/templateDB

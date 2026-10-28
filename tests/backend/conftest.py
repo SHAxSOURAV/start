@@ -1,12 +1,12 @@
 from collections.abc import AsyncGenerator
 
-import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.application import app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[AsyncClient]:
     """Provides an asynchronous test client for FastAPI endpoints."""
     transport = ASGITransport(app=app)

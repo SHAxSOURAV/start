@@ -1,10 +1,14 @@
 import sys
 from pathlib import Path
 
+WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
+BACKEND_DIR = WORKSPACE_ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from src.connection.connect_db import DOCUMENT_MODELS
 
-WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = WORKSPACE_ROOT / "src"
+SRC_DIR = BACKEND_DIR / "src"
 SCHEMA_MD = WORKSPACE_ROOT / "docs" / "DATABASE_SCHEMA.md"
 
 MAX_FILE_LINES = 1000

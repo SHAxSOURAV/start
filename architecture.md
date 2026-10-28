@@ -45,56 +45,73 @@ To prevent dependency bloat, version drift, and security vulnerabilities, **only
 
 ---
 
-## 3. Modular Directory Structure
+## 3. Monorepo & Modular Directory Structure
 
-The project implements a feature-based 4-layer modular architecture under `src/app/module/`, supplemented by shared utilities, connection drivers, and scheduled jobs.
+The repository is organized as a production-grade monorepo containing self-contained services (`backend/`, `frontend/`, `dashboard/`, `website/`), supplemented by shared architecture catalogs, developer tooling, and service-oriented test suites.
 
 ```
 start/
 ├── architecture.md             # This document (System Blueprint)
 ├── AGENTS.md                   # Always-on Antigravity System Rules
-├── pyproject.toml              # Project metadata & dependency declarations
-├── uv.lock                     # Deterministic dependency lockfile
-├── .python-version             # Python version pin (3.15)
-├── .env.example                # Canonical environment variable contract
-├── start.ps1 / start.bat       # Cross-platform startup scripts
+├── GEMINI.md                   # Gemini & Agent Guidelines
+├── README.md                   # Monorepo overview and root index
+├── docker-compose.yml          # Multi-service orchestrator (Redis, Mongo, Backend, etc.)
+├── .gitignore                  # Unified monorepo ignore rules
+├── .agents/                    # Tooling & MCP configurations
+│   └── mcp_config.json
+├── .antigravity/               # Agent rules
+│   └── rules.md
 ├── docs/                       # Living architectural catalogs
 │   ├── DATABASE_SCHEMA.md      # MongoDB collections & index catalog
 │   ├── MONGODB_PERFORMANCE.md  # 2-3 Lakh+ records query guidelines
 │   ├── NOTIFICATIONS.md        # Push, socket, and email event catalog
 │   └── openapi.yaml            # Single source of truth OpenAPI spec
-├── scripts/
-│   └── verify_standards.py     # Code style, file size & schema sync validator
-└── src/
-    ├── server.py               # Application entrypoint & graceful shutdown
-    ├── application.py          # FastAPI instance, global middlewares, routing
-    ├── config/                 # Pydantic Settings environment configuration
-    ├── connection/             # DB & Socket.IO driver initialization
-    │   ├── connect_db.py       # Beanie & AsyncMongoClient setup
-    │   ├── socket.py           # Combined ASGI App wrapper (FastAPI + Socket.IO)
-    │   └── socket_server.py    # Socket.IO AsyncServer singleton
-    ├── builder/                # QueryBuilder (filtering, sorting, keyset pagination)
-    ├── error/                  # ApiError, global error handlers, custom exceptions
-    ├── jobs/                   # Async periodic cron jobs (e.g., OTP cleanup)
-    ├── mail/                   # HTML email templates
-    ├── socket/                 # Socket event controllers & connection handlers
-    ├── types/                  # Cross-cutting TypedDicts and interfaces
-    ├── util/                   # Reusable helpers (JWT, logging, responses, fire_and_forget)
-    └── app/
-        ├── middleware/         # Auth guards, rate limiting, request validation, uploaders
-        ├── routes/             # Central route aggregator (`api_v1_router`)
-        └── module/             # Self-contained feature modules
-            └── <module_name>/
-                ├── <name>_model.py       # Database schema & Beanie Document
-                ├── <name>_validation.py  # Pydantic request/response payload schemas
-                ├── <name>_routes.py      # Route endpoints & middleware attachments
-                ├── <name>_controller.py  # Request unpacking & HTTP response formatting
-                └── <name>_service.py     # Pure business logic & database queries
+├── scripts/                    # Root automation & validation scripts
+│   ├── verify_standards.py     # Code style, file size & schema sync validator
+│   └── start_redis.ps1
+├── tests/                      # Centralized tests organized by service
+│   └── backend/                # Pytest backend test suite
+├── frontend/                   # Client-Facing Web Application
+│   └── README.md
+├── dashboard/                  # Admin & Operations Dashboard
+│   └── README.md
+├── website/                    # Public Marketing Website & Landing Pages
+│   └── README.md
+└── backend/                    # FastAPI + Beanie Backend Service
+    ├── pyproject.toml          # Project metadata & dependency declarations
+    ├── uv.lock                 # Deterministic dependency lockfile
+    ├── .python-version         # Python version pin (3.13)
+    ├── .env / .env.example     # Environment variable contract
+    ├── start.ps1 / start.bat   # Startup scripts
+    ├── Dockerfile              # Container definition
+    └── src/
+        ├── server.py           # Application entrypoint & graceful shutdown
+        ├── application.py      # FastAPI instance, global middlewares, routing
+        ├── config/             # Pydantic Settings environment configuration
+        ├── connection/         # DB & Socket.IO driver initialization
+        ├── builder/            # QueryBuilder (filtering, sorting, keyset pagination)
+        ├── error/              # ApiError, global error handlers, custom exceptions
+        ├── jobs/               # Async periodic cron jobs (e.g., OTP cleanup)
+        ├── mail/               # HTML email templates
+        ├── socket/             # Socket event controllers & connection handlers
+        ├── types/              # Cross-cutting TypedDicts and interfaces
+        ├── util/               # Reusable helpers (JWT, logging, responses, fire_and_forget)
+        └── app/
+            ├── middleware/     # Auth guards, rate limiting, request validation, uploaders
+            ├── routes/         # Central route aggregator (`api_v1_router`)
+            └── module/         # Self-contained feature modules
+                └── <module_name>/
+                    ├── <name>_model.py       # Database schema & Beanie Document
+                    ├── <name>_validation.py  # Pydantic request/response payload schemas
+                    ├── <name>_routes.py      # Route endpoints & middleware attachments
+                    ├── <name>_controller.py  # Request unpacking & HTTP response formatting
+                    └── <name>_service.py     # Pure business logic & database queries
 ```
 
 ### Module Scaffolding
-New feature modules **must** be created using the official generator:
+New feature modules in the backend **must** be created from the `backend/` directory using the official generator:
 ```powershell
+cd backend
 python -m src.util.generate_module <ModuleName>
 ```
 This guarantees that all 5 essential files (`_model.py`, `_validation.py`, `_routes.py`, `_controller.py`, `_service.py`) are scaffolded consistently.

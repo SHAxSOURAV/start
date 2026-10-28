@@ -4,6 +4,8 @@
 # .env tracked as per project repository requirements
 !.env
 !.env.example
+!**/.env
+!**/.env.example
 *.key
 *.pem
 *.cert
@@ -109,3 +111,15 @@ media/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ==================================================
+# Node.js & Web Frontends
+# ==================================================
+node_modules/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

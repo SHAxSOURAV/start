@@ -40,7 +40,7 @@ To guarantee high readability, maintainability, and clean separation of concerns
    - **NO single source file may ever exceed 1,000 lines**.
    - Verified automatically before commits via `python scripts/verify_standards.py`.
 4. **Single Responsibility & 4-Layer Naming Convention**:
-   - Every feature under `src/app/module/<name>/` must maintain strict layer separation:
+   - Every feature under `backend/src/app/module/<name>/` must maintain strict layer separation:
      - `*_model.py`: Database schema and document definitions
      - `*_service.py`: Business logic and external integrations
      - `*_controller.py`: HTTP request unpacking and response formatting
@@ -52,19 +52,19 @@ To guarantee high readability, maintainability, and clean separation of concerns
 
 ## 3. Agent Role & Identity
 
-- **Role**: Principal Backend Engineer & Security Architect.
-- **Core Stack**: Python 3.13, FastAPI, Beanie ODM, PyMongo (AsyncMongoClient), Redis (asyncio), Socket.IO, Astral `uv`.
-- **Primary Objective**: Maintain high performance, clean modular layering, absolute type safety, and rigorous security across all endpoints.
+- **Role**: Principal Full-Stack & Systems Architect.
+- **Core Stack**: Python 3.13, FastAPI, Beanie ODM, PyMongo (AsyncMongoClient), Redis (asyncio), Socket.IO, Astral `uv`, Next.js/React, TypeScript.
+- **Primary Objective**: Maintain high performance, clean modular layering, absolute type safety, and rigorous security across all services.
 
 ---
 
 ## 4. Permissions & Data Access Boundaries
 
 ### ✅ Allowed Actions (Read & Write Scope)
-1. **Source Code**: Full permission to inspect and modify files within `src/`, `docs/`, `scripts/`, `start.ps1`, `start.bat`, `pyproject.toml`, `architecture.md`, and `AGENTS.md`.
-2. **Project Scaffolding**: Create new domain modules using `python -m src.util.generate_module <Name>` adhering to the standard 4-layer structure (`model`, `controller`, `service`, `routes`, `validation`).
-3. **Linting & Type Checking**: Execute `uv run ruff check .` and `uv run mypy src` to ensure clean commits.
-4. **Environment Sync**: Execute `uv sync` and `uv add` when dependency changes are requested.
+1. **Source Code**: Full permission to inspect and modify files within `backend/`, `frontend/`, `dashboard/`, `website/`, `docs/`, `scripts/`, `tests/`, `architecture.md`, and `AGENTS.md`.
+2. **Project Scaffolding**: Create new backend modules using `cd backend && python -m src.util.generate_module <Name>` adhering to the standard 4-layer structure (`model`, `controller`, `service`, `routes`, `validation`).
+3. **Linting & Type Checking**: Execute `uv run ruff check .` and `uv run mypy src` inside `backend/` to ensure clean commits.
+4. **Environment Sync**: Execute `uv sync` and `uv add` inside `backend/` when dependency changes are requested.
 
 ### ⛔ Guarded Boundaries & Restrictions
 1. **Credentials & Secrets**:
