@@ -1,45 +1,71 @@
-# Public Marketing Website
+# Mount Fuji Public Website (Next.js 15 App Router)
 
-## 1. Overview
-This directory contains the public marketing website, landing pages, and lead-generation portal. It is optimized for high-speed performance, search engine indexing (SEO), and conversion.
-
----
-
-## 2. Key Pages & Features
-- **Hero & Value Proposition**: Engaging interactive hero with product features and CTAs.
-- **Features & Solutions**: Showcase of capabilities, platform security, and integrations.
-- **Pricing & Plans**: Tiered subscription plans with direct Stripe Checkout integration.
-- **Public Legal Pages**: Dynamic or static Terms of Service, Privacy Policy, and About Us.
-- **Contact & Inquiries**: Public contact forms directly submitting to Backend Inquiries endpoints.
-- **SEO & Social Sharing**: Complete OpenGraph, Twitter cards, and structured JSON-LD schemas.
+Public marketing website, landing pages, and lead-generation portal built with **Next.js 15**, **Tailwind CSS**, and **TypeScript**, aligned with official Next.js App Router guidelines from Context7.
 
 ---
 
-## 3. Recommended Tech Stack
-- **Framework**: [Next.js](https://nextjs.org/) (Static Site Generation / Incremental Static Regeneration) or [Astro](https://astro.build/)
-- **Language**: TypeScript
+## 1. Tech Stack & Architectural Patterns
+
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Server-Side Rendering & Static Generation)
+- **Language**: TypeScript (`strict` mode)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
 - **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **SEO & Analytics**: Next-SEO, Google Analytics / Plausible integration
+- **HTTP Client**: Axios (Connected to Backend public inquiry endpoints)
+- **SEO & Social Sharing**: Complete OpenGraph, Twitter card metadata, and semantic markup
 
 ---
 
-## 4. Backend Integration Contracts
-- **Base REST API URL**: `http://localhost:8000/api/v1`
-- **Contact Submissions**: `POST http://localhost:8000/api/v1/admin/manage-web/contact-us`
-- **Dynamic Content**: `GET http://localhost:8000/api/v1/admin/manage-web/terms-conditions`, `GET .../privacy-policy`
+## 2. Directory Layout
 
----
-
-## 5. Planned Directory Structure
 ```
 website/
-├── public/                 # Static marketing imagery, favicons, robots.txt, sitemap.xml
-├── src/
-│   ├── app/                # Pages (home, pricing, features, about, contact, legal)
-│   ├── components/         # Hero, navigation, footer, pricing cards, contact form
-│   ├── lib/                # API client, SEO utilities
-│   └── styles/             # Global styling & Tailwind typography
-├── package.json
-└── tailwind.config.ts
+├── next.config.ts          # Next.js 15 configuration
+├── tailwind.config.ts      # Tailwind CSS styling configuration
+├── postcss.config.mjs
+├── tsconfig.json           # Path aliases (@/* -> ./src/*)
+├── package.json            # Scripts & dependencies
+└── src/
+    ├── app/                # Next.js 15 App Router pages & layouts
+    │   ├── layout.tsx      # Global HTML shell with OpenGraph metadata, Navbar & Footer
+    │   ├── page.tsx        # Public marketing landing page (Hero, Features, CTA)
+    │   ├── globals.css     # Global Tailwind stylesheet
+    │   ├── contact/
+    │   │   └── page.tsx    # Interactive contact form (wired to Backend API)
+    │   ├── terms/
+    │   │   └── page.tsx    # Platform terms & conditions
+    │   └── privacy/
+    │       └── page.tsx    # Privacy policy
+    └── components/         # Reusable presentation components (Navbar, Footer)
+```
+
+---
+
+## 3. Getting Started
+
+### Installation
+```bash
+cd website
+npm install
+```
+
+### Running Development Server
+```bash
+# Starts Next.js on http://localhost:3000
+npm run dev
+```
+
+### Building for Production
+```bash
+npm run build
+npm start
+```
+
+---
+
+## 4. Environment Variables
+
+Create `.env.local` inside `website/`:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```

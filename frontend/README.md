@@ -1,57 +1,84 @@
-# Client Frontend Application
+# Mount Fuji Mobile Application (React Native + Expo Router)
 
-## 1. Overview
-This directory contains the primary client-facing web application for the platform. It is designed to provide an interactive, responsive experience across desktop, tablet, and mobile browsers.
-
----
-
-## 2. Recommended Tech Stack
-- **Framework**: [Next.js](https://nextjs.org/) (App Router) or [Vite](https://vitejs.dev/) with React
-- **Language**: TypeScript (`strict` mode)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) / Radix UI
-- **State & Server Cache**: [TanStack Query](https://tanstack.com/query) (React Query)
-- **Real-Time Client**: `socket.io-client` for bi-directional chat, typing indicators, and notifications
-- **Form Management**: `react-hook-form` + `zod` for payload schema validation
-- **HTTP Client**: Axios / Fetch with interceptors for automatic JWT refresh and bearer tokens
+Universal mobile application for iOS, Android, and Web built using **Expo SDK 52**, **Expo Router**, and **TypeScript**, aligned with live best practices from Context7.
 
 ---
 
-## 3. Backend Integration Contracts
-- **Base REST API URL**: `http://localhost:8000/api/v1`
-- **Real-Time Socket Server**: `http://localhost:8000`
-- **API Documentation**: Refer to root `docs/openapi.yaml` for complete endpoint schemas and contracts.
-- **Push & In-App Notifications**: Listen on user-specific room events (`notification`, `chat_message`).
+## 1. Tech Stack & Architectural Patterns
+
+- **Framework**: [Expo SDK 52](https://docs.expo.dev/) (Universal React Native)
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based navigation with `Stack` and `Tabs`)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) for client state & [TanStack Query v5](https://tanstack.com/query) for server caching
+- **Real-Time Client**: `socket.io-client` connected to the Backend Socket.IO ASGI server
+- **HTTP Client**: Axios with request/response interceptors for Bearer tokens
+- **Type Safety**: TypeScript in strict mode extending `expo/tsconfig.base`
 
 ---
 
-## 4. Planned Directory Structure
+## 2. Directory Layout
+
 ```
 frontend/
-├── public/                 # Static assets, icons, fonts
-├── src/
-│   ├── app/                # Next.js App Router pages and layouts
-│   ├── components/         # Reusable UI primitives (buttons, dialogs, cards)
-│   ├── hooks/              # Custom React hooks (useAuth, useSocket, etc.)
-│   ├── lib/                # API client instances, socket connection, utilities
-│   ├── services/           # Domain API service callers (authService, userService)
-│   └── types/              # TypeScript interface definitions (matches backend schemas)
-├── package.json
-└── tailwind.config.ts
+├── app.json                # Expo application configuration & plugins
+├── tsconfig.json           # Path aliases (@/* -> ./src/*)
+├── metro.config.js         # Metro bundler configuration
+├── package.json            # Dependencies & start scripts
+└── src/
+    ├── app/                # Expo Router file-based route hierarchy
+    │   ├── _layout.tsx     # Root stack layout & QueryClientProvider
+    │   ├── (auth)/         # Unauthenticated route group
+    │   │   ├── _layout.tsx
+    │   │   ├── login.tsx   # Login screen
+    │   │   └── register.tsx
+    │   └── (tabs)/         # Authenticated tab navigation
+    │       ├── _layout.tsx # Bottom tab bar
+    │       ├── index.tsx   # Home feed
+    │       ├── chat.tsx    # Real-time chat list
+    │       └── profile.tsx # User profile & account management
+    ├── components/         # Reusable mobile UI components
+    ├── hooks/              # Custom React hooks (useAuth, useSocket)
+    ├── services/           # Backend API caller (apiClient)
+    ├── socket/             # Socket.IO client instance & event listeners
+    └── types/              # DTOs & API response shapes
 ```
 
 ---
 
-## 5. Getting Started (For Future Agent Tasks)
-When initializing this workspace:
+## 3. Getting Started
+
+### Prerequisites
+- Node.js `>=18`
+- npm or pnpm or yarn
+- Expo Go app on physical iOS/Android device OR Xcode / Android Studio simulators
+
+### Installation
 ```bash
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
+cd frontend
+npm install
 ```
-Ensure all API requests adhere to the standardized API envelope:
-```json
-{
-  "statusCode": 200,
-  "success": true,
-  "message": "...",
-  "data": { ... }
-}
+
+### Running the App
+```bash
+# Start the Metro bundler
+npm start
+
+# Run on Android emulator / connected device
+npm run android
+
+# Run on iOS simulator (macOS required)
+npm run ios
+
+# Run in Web browser
+npm run web
 ```
+
+---
+
+## 4. Environment Variables
+
+Create `.env` inside `frontend/`:
+```env
+EXPO_PUBLIC_API_URL=http://localhost:8000/api/v1
+EXPO_PUBLIC_SOCKET_URL=http://localhost:8000
+```
+*(On physical devices, replace `localhost` with your machine's local LAN IP e.g. `192.168.1.X`)*
