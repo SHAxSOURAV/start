@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
-BACKEND_DIR = WORKSPACE_ROOT / "backend"
+BACKEND_DIR = WORKSPACE_ROOT
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 

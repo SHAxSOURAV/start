@@ -1,101 +1,71 @@
-# Mount Fuji Monorepo
+# Backend Server (FastAPI + Beanie + MongoDB)
 
-Enterprise-grade, asynchronous monorepo platform encompassing backend API microservices, client application, admin operations dashboard, and public marketing website.
-
----
-
-## 1. Monorepo Architecture & Directory Layout
-
-```
-start/
-├── AGENTS.md                   # Always-on Antigravity System Rules & Architectures
-├── GEMINI.md                   # Gemini & Agent Guidelines
-├── architecture.md             # System Architectural Blueprint
-├── CODE_REVIEW.md              # Engineering code review guidelines
-├── README.md                   # Monorepo overview and root index
-├── docker-compose.yml          # Multi-service orchestrator (Redis, Mongo, Backend, etc.)
-├── .gitignore                  # Unified monorepo ignore rules
-├── .agents/                    # MCP tools & external agent configuration
-│   └── mcp_config.json
-├── .antigravity/               # Antigravity agent system configuration
-│   └── rules.md
-├── docs/                       # Architectural catalogs, schemas, and specifications
-│   ├── ASYNC_MONGODB_PRODUCTION_GUIDE.md
-│   ├── DATABASE_SCHEMA.md      # MongoDB collections & indexes
-│   ├── MEDIA_STORAGE_GUIDELINES.md
-│   ├── MONGODB_PERFORMANCE.md  # 200k-300k+ records query guide
-│   ├── NOTIFICATIONS.md        # Push, socket & email event catalog
-│   ├── openapi.yaml            # Single source of truth OpenAPI spec
-│   ├── REDIS_GUIDELINES.md     # Production Redis standards
-│   └── SENTRY_MONITORING.md    # Crash reporting & APM tracing
-├── scripts/                    # Shared root scripts & quality validators
-│   ├── verify_standards.py     # Code standards & file limit validator
-│   └── start_redis.ps1
-├── tests/                      # Centralized tests organized by service
-│   └── backend/                # Backend test suite (pytest)
-├── backend/                    # FastAPI + Beanie + MongoDB Asynchronous Backend
-│   ├── src/                    # Feature modules & core engine
-│   ├── pyproject.toml          # Python package & dependency metadata
-│   ├── uv.lock                 # Deterministic dependency lockfile
-│   ├── start.ps1               # Backend development launcher
-│   └── Dockerfile              # Container image specification
-├── frontend/                   # Client-Facing Web Application
-│   └── README.md               # Architecture & planned Next.js / React stack
-├── dashboard/                  # Admin & Operations Dashboard
-│   └── README.md               # Architecture & planned admin portal stack
-└── website/                    # Public Marketing Website & Landing Pages
-    └── README.md               # Architecture & planned marketing stack
-```
+High-performance, asynchronous, production-ready backend starter template built with FastAPI, Beanie ODM, PyMongo, Redis, and Socket.IO.
 
 ---
 
-## 2. Service Overview & Responsibilities
-
-| Service / Directory | Description | Primary Tech Stack |
-|---|---|---|
-| [backend/](file:///c:/Users/Sourav/Documents/Start/backend) | High-performance async REST & WebSocket API | Python 3.13, FastAPI, Beanie, Redis, Socket.IO |
-| [frontend/](file:///c:/Users/Sourav/Documents/Start/frontend) | Client web portal & responsive user interface | Next.js / React, Tailwind CSS, TanStack Query |
-| [dashboard/](file:///c:/Users/Sourav/Documents/Start/dashboard) | Admin & Super Admin operations dashboard | Next.js / Vite React, Tailwind CSS, Lucide |
-| [website/](file:///c:/Users/Sourav/Documents/Start/website) | Public marketing website & landing pages | Next.js / Astro, Tailwind CSS, SEO JSON-LD |
-| [docs/](file:///c:/Users/Sourav/Documents/Start/docs) | Architecture specifications & living API docs | Markdown, OpenAPI YAML |
-| [scripts/](file:///c:/Users/Sourav/Documents/Start/scripts) | Root automation & code standard validators | Python, PowerShell |
-| [tests/](file:///c:/Users/Sourav/Documents/Start/tests) | End-to-end and integration test suites | Pytest, Playwright |
+## 1. Requirements & Tech Stack
+- **Python**: `>=3.13`
+- **Package Manager**: Astral `uv`
+- **Framework**: FastAPI `>=0.129.0`
+- **ODM / Database**: Beanie `>=2.2.0`, PyMongo `>=4.19.0` (MongoDB 7+)
+- **Cache & Revocation**: Redis `>=8.1.0` (asyncio)
+- **Real-Time Engine**: Python-SocketIO `>=5.17.0`
+- **Cloud Storage**: AWS S3 via `aioboto3`
+- **Observability**: Sentry SDK APM tracing & crash reporting
 
 ---
 
-## 3. Git Branching Strategy
+## 2. Setup & Environment
 
-This repository adopts a Git-Flow monorepo structure:
-- **`develop`**: The primary integration branch containing all service workspaces and root documentation.
-- **`backend`**: Dedicated branch for backend core features and API endpoints.
-- **`frontend`**: Dedicated branch for the client web application.
-- **`dashboard`**: Dedicated branch for the administrative dashboard.
-- **`website`**: Dedicated branch for public landing pages and marketing.
-
----
-
-## 4. Quick Start & Execution
-
-All application services are self-contained. To run the backend:
-
-```powershell
-# Navigate to backend
+Navigate into `backend/`:
+```bash
 cd backend
+uv sync                         # creates .venv and installs all dependencies + dev tools
+cp .env.example .env            # fill in local environment variables
+```
 
-# Install dependencies
-uv sync
+---
 
-# Launch development server
+## 3. Quick Start
+
+Run the startup script in PowerShell:
+```powershell
+cd backend
 .\start.ps1
 ```
-
-To run root standards verification:
+Or for production mode:
 ```powershell
-python scripts/verify_standards.py
+.\start.ps1 -Prod
 ```
 
-To run backend tests from root or backend:
-```powershell
-cd backend
-uv run pytest ../tests/backend
+Alternatively, run directly with `uv`:
+```bash
+uv run uvicorn src.connection.socket:main_server --reload --host 0.0.0.0 --port 8000
 ```
+
+---
+
+## 4. Development Commands (Run from `backend/`)
+
+| Action | Command |
+|---|---|
+| **Start Development Server** | `uv run uvicorn src.connection.socket:main_server --reload --host 0.0.0.0 --port 8000` |
+| **Start Production Server** | `uv run python -m src.server` |
+| **Run Unit & Integration Tests** | `uv run pytest ../tests/backend` |
+| **Type Check** | `uv run mypy src` |
+| **Lint & Format Check** | `uv run ruff check .` |
+| **Auto Fix Lint Issues** | `uv run ruff check --fix .` |
+| **Format Code** | `uv run ruff format .` |
+| **Seed Super Admin** | `uv run python -m src.scripts.seed_super_admin` |
+| **Generate New Module** | `uv run python -m src.util.generate_module <ModuleName>` |
+
+---
+
+## 5. Docker Build
+
+To build and run standalone backend container:
+```bash
+docker build -t backend-server .
+```
+Or use the multi-service `docker-compose.yml` located at the root of the monorepo.
