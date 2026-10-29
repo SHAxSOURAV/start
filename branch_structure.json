@@ -1,0 +1,27 @@
+{
+  "default_branch": "develop",
+  "branches": [
+    "backend",
+    "dashboard",
+    "develop",
+    "frontend",
+    "origin",
+    "website"
+  ],
+  "parent": {
+    "backend": "develop",
+    "dashboard": "develop",
+    "develop": null,
+    "frontend": "develop",
+    "origin": "develop",
+    "website": "develop"
+  },
+  "order": [
+    "develop",
+    "backend",
+    "dashboard",
+    "frontend",
+    "origin",
+    "website"
+  ]
+}
