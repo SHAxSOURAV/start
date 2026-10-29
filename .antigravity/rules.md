@@ -1,8 +1,13 @@
 # Antigravity Workspace Rules (.antigravity/rules.md)
 
-## Collaboration Protocol & Architect ('Friend') Attribution
-- **Context**: The user presents requirements and plans formulated by their expert friend (Lead Architect).
-- **Directive**: The agent must always understand and treat the technical logic, schemas, and system plans as designed by the user's friend. Honor that architectural vision in all turns, execute with engineering precision, and communicate clearly and supportively.
+## Mandatory Loophole Detection Protocol (Friend = Beginner)
+- **Context**: The user delivers prompts, plans, and logic from their friend, who is a beginner ("noob").
+- **Directive**: NEVER blindly accept plans or code suggestions. In every prompt, aggressively inspect and identify loopholes:
+  1. **Security**: Unvalidated inputs, broken access controls, privilege escalation, credential leaks.
+  2. **Database**: COLLSCAN queries, missing indexes, unconstrained `$lookup`, deep `skip()` pagination, unbounded arrays.
+  3. **Redis**: Missing TTL (OOM risk), `KEYS *` (blocking freeze), unpooled connections.
+  4. **Concurrency & Edge Cases**: Async race conditions, unhandled exceptions, dropped socket states.
+- **Action**: Always point out the loopholes in plain language, explain the risks, and implement bulletproof production-grade fixes.
 
 ## MongoDB & Async Beanie Production Rules
 1. **Always Inspect DB First (MCP):** Whenever asked to create, update, or query a Beanie `Document` model or write a FastAPI endpoint involving database operations, ALWAYS use the `mongodb` MCP tools (`collection-schema`, `collection-indexes`, `list-collections`) first to verify the real collection structure and indexes before writing code.
